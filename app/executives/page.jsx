@@ -1,18 +1,22 @@
 import { FaUserGraduate, FaUsers } from 'react-icons/fa';
 import { siteConfig } from '@/config/site';
-import { getCommittee, getLatestYear, getYears } from '@/lib/executives';
+import { getCommittee, getYears } from '@/server/services/executive.service';
 import DarkPageHeader from '@/components/ui/DarkPageHeader';
 import YearTabs from '@/components/executives/YearTabs';
 import ExecutiveCard from '@/components/executives/ExecutiveCard';
 import { MotionRoot, Stagger, StaggerItem } from '@/components/home/motion';
 
-function resolveYear(value) {
+// Requested year if a committee exists for it, otherwise the newest one
+function resolveYear(years, value) {
   const year = Number(value);
-  return getYears().includes(year) ? year : getLatestYear();
+  return years.includes(year) ? year : years[0] ?? new Date().getFullYear();
 }
 
+// Reads MongoDB on every request so dashboard edits show up immediately
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata({ searchParams }) {
-  const year = resolveYear((await searchParams).year);
+  const year = resolveYear(await getYears(), (await searchParams).year);
   return {
     title: `Executives ${year}`,
     description: `The ${year} executive committee of the ${siteConfig.name} — faculty advisors and student executives.`,
@@ -23,7 +27,7 @@ function Group({ icon: Icon, title, members }) {
   if (!members.length) return null;
   return (
     <section className="mt-12 first:mt-0">
-      <h2 className="mb-6 flex items-center gap-3 text-xl text-white md:text-2xl">
+      <h2 className="mb-6 flex items-center gap-3 text-xl text-ink md:text-2xl">
         <Icon className="text-orange-500" aria-hidden /> {title}
       </h2>
       <Stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" gap={0.05}>
@@ -39,13 +43,13 @@ function Group({ icon: Icon, title, members }) {
 
 // /executives?year=2025 — defaults to the newest committee
 export default async function Page({ searchParams }) {
-  const years = getYears();
-  const year = resolveYear((await searchParams).year);
-  const { advisors, executives } = getCommittee(year);
+  const years = await getYears();
+  const year = resolveYear(years, (await searchParams).year);
+  const { advisors, executives } = await getCommittee(year);
 
   return (
     <MotionRoot>
-      <div className="min-h-[70vh] bg-black text-neutral-300">
+      <div className="min-h-[70vh] bg-canvas text-body">
         <DarkPageHeader
           title={`${siteConfig.shortName} Executives`}
           accent={year}
@@ -56,7 +60,7 @@ export default async function Page({ searchParams }) {
         </DarkPageHeader>
 
         {/* key={year} replays the entrance animation when switching years */}
-        <div key={year} className="container max-w-7xl py-12">
+        <div key={year} className="container max-w-7xl 2xl:max-w-screen-2xl py-12">
           <Group icon={FaUserGraduate} title="Faculty Advisors" members={advisors} />
           <Group icon={FaUsers} title="Student Executives" members={executives} />
         </div>

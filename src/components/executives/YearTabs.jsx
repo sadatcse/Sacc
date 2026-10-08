@@ -9,7 +9,7 @@ export default function YearTabs({ years, active }) {
     <div className="mt-8 flex justify-center">
       <nav
         aria-label="Committee year"
-        className="flex max-w-full gap-1 overflow-x-auto rounded-xl border border-white/15 bg-black/40 p-1 [scrollbar-width:none]"
+        className="flex max-w-full gap-1 overflow-x-auto rounded-xl border border-line/15 bg-canvas/60 p-1 [scrollbar-width:none]"
       >
         {years.map((year) => {
           const isActive = year === active;
@@ -21,7 +21,7 @@ export default function YearTabs({ years, active }) {
               aria-current={isActive ? 'page' : undefined}
               className={cn(
                 'relative shrink-0 rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors',
-                isActive ? 'text-white' : 'text-neutral-400 hover:text-white'
+                isActive ? 'text-white' : 'text-muted hover:text-ink'
               )}
             >
               {isActive && (

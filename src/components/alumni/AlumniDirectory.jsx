@@ -1,8 +1,9 @@
 'use client';
 import { useDeferredValue, useMemo, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
-import { FaSearch, FaSlidersH, FaChevronDown, FaChevronUp, FaLinkedinIn, FaGithub, FaGlobe, FaTimes, FaUserGraduate } from 'react-icons/fa';
+import { FaSearch, FaSlidersH, FaChevronDown, FaChevronUp, FaLinkedinIn, FaGithub, FaGlobe, FaTimes, FaUserGraduate, FaMapMarkerAlt, FaHandsHelping } from 'react-icons/fa';
 import { cn } from '@/lib/utils';
 
 const LINK_ICONS = [
@@ -26,44 +27,58 @@ function PillSelect({ label, value, onChange, children, className }) {
   return (
     <label
       className={cn(
-        'relative inline-flex h-10 items-center gap-1.5 rounded-md border border-white/10 bg-neutral-900 pl-3 pr-8 text-sm transition-colors focus-within:border-orange-500 hover:border-orange-500/60',
+        'relative inline-flex h-10 items-center gap-1.5 rounded-md border border-line/10 bg-surface pl-3 pr-8 text-sm transition-colors focus-within:border-orange-500 hover:border-orange-500/60',
         className
       )}
     >
-      <span className="text-neutral-500">{label}:</span>
+      <span className="text-subtle">{label}:</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="max-w-[11rem] cursor-pointer appearance-none truncate bg-transparent font-medium text-neutral-100 outline-none [&>option]:bg-neutral-900"
+        className="max-w-[11rem] cursor-pointer appearance-none truncate bg-transparent font-medium text-ink-2 outline-none [&>option]:bg-surface"
       >
         {children}
       </select>
-      <FaChevronDown className="pointer-events-none absolute right-3 text-[10px] text-neutral-400" aria-hidden />
+      <FaChevronDown className="pointer-events-none absolute right-3 text-[10px] text-muted" aria-hidden />
     </label>
   );
 }
 
 function Avatar({ person }) {
   if (person.photo) {
-    return <Image src={person.photo} alt={person.name} width={64} height={64} className="h-16 w-16 shrink-0 rounded-lg object-cover ring-1 ring-white/10" />;
+    return <Image unoptimized src={person.photo} alt={person.name} width={64} height={64} className="h-16 w-16 shrink-0 rounded-lg object-cover ring-1 ring-line/10" />;
   }
   return (
-    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-gradient-to-br from-neutral-800 to-neutral-900 text-xl font-semibold text-orange-400">
+    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-line/10 bg-gradient-to-br from-surface-2 to-surface text-xl font-semibold text-orange-600 dark:text-orange-400">
       {person.name.charAt(0)}
     </span>
   );
 }
 
-function AlumniCard({ person }) {
+// Directory card; the whole card opens /alumni/<slug> (social icons stay separate links)
+export function AlumniCard({ person }) {
   return (
-    <div className="group flex h-full gap-4 rounded-xl border border-white/10 bg-neutral-900/70 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-orange-500/60 hover:shadow-[0_0_30px_-10px_rgba(249,115,22,0.6)]">
+    <div className="group relative flex h-full gap-4 rounded-xl border border-line/10 bg-surface/70 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-orange-500/60 hover:shadow-[0_0_30px_-10px_rgba(249,115,22,0.6)]">
       <Avatar person={person} />
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-base font-semibold text-white transition-colors group-hover:text-orange-400">{person.name}</h3>
-        <p className="mt-0.5 text-xs leading-snug text-neutral-400">
-          <span className="font-medium text-neutral-200">{person.role}</span>
+        <h3 className="truncate text-base font-semibold text-ink transition-colors group-hover:text-orange-600 dark:group-hover:text-orange-400">
+          {person.slug ? (
+            <Link href={`/alumni/${person.slug}`} className="after:absolute after:inset-0 after:rounded-xl focus:outline-none">
+              {person.name}
+            </Link>
+          ) : (
+            person.name
+          )}
+        </h3>
+        <p className="mt-0.5 text-xs leading-snug text-muted">
+          <span className="font-medium text-ink-2">{person.role}</span>
           {person.company && <> <span className="text-orange-500">@</span> {person.company}</>}
         </p>
+        {person.location && (
+          <p className="mt-1 flex items-center gap-1 truncate text-xs text-subtle">
+            <FaMapMarkerAlt className="shrink-0 text-[10px]" aria-hidden /> {person.location}
+          </p>
+        )}
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
           {LINK_ICONS.map(([key, Icon, label]) =>
             person.links?.[key] ? (
@@ -73,16 +88,21 @@ function AlumniCard({ person }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`${person.name} on ${label}`}
-                className="text-sm text-neutral-400 transition-colors hover:text-orange-400"
+                className="relative z-10 text-sm text-muted transition-colors hover:text-orange-600 dark:hover:text-orange-400"
               >
                 <Icon aria-hidden />
               </a>
             ) : null
           )}
-          <span className="rounded border border-white/15 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-300">{person.batch}</span>
+          {person.batch && <span className="rounded border border-line/15 px-1.5 py-0.5 text-[10px] font-semibold text-body">{person.batch}</span>}
           {person.featured && (
-            <span className="rounded border border-orange-500/60 bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-orange-400">
+            <span className="rounded border border-orange-500/60 bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-orange-600 dark:text-orange-400">
               {person.featured}
+            </span>
+          )}
+          {person.openToMentor && (
+            <span className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+              <FaHandsHelping aria-hidden /> Mentor
             </span>
           )}
         </div>
@@ -111,7 +131,7 @@ export default function AlumniDirectory({ alumni }) {
   const results = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
     return alumni
-      .filter((a) => !q || [a.name, a.role, a.company, a.batch, a.featured].some((v) => v?.toLowerCase().includes(q)))
+      .filter((a) => !q || [a.name, a.role, a.company, a.batch, a.featured, a.location].some((v) => v?.toLowerCase().includes(q)))
       .filter((a) => !filters.batch || a.batch === filters.batch)
       .filter((a) => !filters.company || a.company === filters.company)
       .filter((a) => !filters.role || a.role === filters.role)
@@ -129,16 +149,16 @@ export default function AlumniDirectory({ alumni }) {
   return (
     <MotionConfig reducedMotion="user">
       {/* Toolbar */}
-      <div className="flex flex-col gap-3 border-b border-white/10 pb-5 md:flex-row md:items-center">
+      <div className="flex flex-col gap-3 border-b border-line/10 pb-5 md:flex-row md:items-center">
         <div className="relative w-full md:max-w-sm">
-          <FaSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-neutral-500" aria-hidden />
+          <FaSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-subtle" aria-hidden />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search alumni…"
             aria-label="Search alumni"
-            className="h-10 w-full rounded-md border border-white/10 bg-neutral-900 pl-9 pr-3 text-sm text-neutral-100 outline-none transition-colors placeholder:text-neutral-500 hover:border-orange-500/60 focus:border-orange-500"
+            className="h-10 w-full rounded-md border border-line/10 bg-surface pl-9 pr-3 text-sm text-ink-2 outline-none transition-colors placeholder:text-subtle hover:border-orange-500/60 focus:border-orange-500"
           />
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -149,8 +169,8 @@ export default function AlumniDirectory({ alumni }) {
             className={cn(
               'inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors',
               showFilters || activeFilterCount
-                ? 'border-orange-500/60 bg-orange-500/10 text-orange-400'
-                : 'border-white/10 bg-neutral-900 text-neutral-200 hover:border-orange-500/60'
+                ? 'border-orange-500/60 bg-orange-500/10 text-orange-600 dark:text-orange-400'
+                : 'border-line/10 bg-surface text-ink-2 hover:border-orange-500/60'
             )}
           >
             <FaSlidersH aria-hidden /> Filters
@@ -163,7 +183,7 @@ export default function AlumniDirectory({ alumni }) {
             ))}
           </PillSelect>
         </div>
-        <p className="text-sm text-neutral-500 md:ml-auto" aria-live="polite">
+        <p className="text-sm text-subtle md:ml-auto" aria-live="polite">
           {results.length} alumni
         </p>
       </div>
@@ -197,7 +217,7 @@ export default function AlumniDirectory({ alumni }) {
                 <option value="no">Others</option>
               </PillSelect>
               {activeFilterCount > 0 && (
-                <button type="button" onClick={() => setFilters(EMPTY_FILTERS)} className="inline-flex items-center gap-1.5 text-sm text-orange-400 hover:text-orange-300">
+                <button type="button" onClick={() => setFilters(EMPTY_FILTERS)} className="inline-flex items-center gap-1.5 text-sm text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300">
                   <FaTimes aria-hidden /> Clear filters
                 </button>
               )}
@@ -231,10 +251,10 @@ export default function AlumniDirectory({ alumni }) {
           </AnimatePresence>
         </motion.ul>
       ) : (
-        <div className="mt-6 flex flex-col items-center rounded-xl border border-dashed border-white/15 py-16 text-center">
+        <div className="mt-6 flex flex-col items-center rounded-xl border border-dashed border-line/15 py-16 text-center">
           <FaUserGraduate className="text-4xl text-orange-500/70" aria-hidden />
-          <p className="mt-4 text-neutral-300">No alumni match your search.</p>
-          <button type="button" onClick={clearAll} className="mt-3 text-sm font-medium text-orange-400 hover:text-orange-300">
+          <p className="mt-4 text-body">No alumni match your search.</p>
+          <button type="button" onClick={clearAll} className="mt-3 text-sm font-medium text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300">
             Clear search &amp; filters
           </button>
         </div>

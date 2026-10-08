@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { appOnlyRoutes } from '@/config/navigation';
 import AuthProvider from '@/providers/AuthProvider';
+import { setTimeZone } from '@/lib/timezone';
 import Navbar from './Navbar';
 import Footer from './Footer';
 
@@ -31,7 +32,9 @@ function useVisitorLog(enabled) {
 }
 
 // Public pages get Navbar + Footer; /dashboard and /login get the auth context instead.
-export default function AppShell({ children }) {
+// timeZone comes from the site settings (app/layout.jsx) so dates match the server's rendering.
+export default function AppShell({ children, timeZone }) {
+  setTimeZone(timeZone);
   const pathname = usePathname() || '/';
   const isAppRoute = appOnlyRoutes.some((route) => pathname.startsWith(route));
 

@@ -1,26 +1,36 @@
-import Link from 'next/link';
-import PageHeader from '@/components/ui/PageHeader';
-import Section from '@/components/ui/Section';
-import Placeholder from '@/components/ui/Placeholder';
+import DarkPageHeader from '@/components/ui/DarkPageHeader';
+import NewsDirectory from '@/components/news/NewsDirectory';
+import { getPublishedPosts } from '@/server/services/news.service';
+import { toCard, todayISO } from '@/lib/news-utils';
+import { newsCategories } from '@/data/news-categories';
 
-export const metadata = { title: 'Our News' };
+export const metadata = {
+  title: 'News & Events',
+  description: 'Club news, articles, tutorials, research highlights and upcoming events.',
+};
 
-// Replace with real posts (e.g. from the database) when ready.
-const SAMPLE_SLUGS = ['news-one', 'news-two', 'news-three'];
+// Reads MongoDB on every request so dashboard edits show up immediately
+export const dynamic = 'force-dynamic';
 
-export default function Page() {
+export default async function Page({ searchParams }) {
+  const { category } = await searchParams;
+  const initialCategory = newsCategories.some((c) => c.key === category) ? category : '';
+  // Rendered per request (reads ?category=), so Upcoming / Completed is always current
+  const today = todayISO();
+  const posts = (await getPublishedPosts()).map((post) => toCard(post, today));
+
   return (
-    <>
-      <PageHeader title="Our News" subtitle="Updates, announcements and event recaps." breadcrumbs={[{ label: 'News' }]} />
-      <Section>
-        <div className="grid gap-6 md:grid-cols-3">
-          {SAMPLE_SLUGS.map((slug) => (
-            <Link key={slug} href={`/news/${slug}`} className="block">
-              <Placeholder label={`News card → /news/${slug}`} />
-            </Link>
-          ))}
-        </div>
-      </Section>
-    </>
+    <div className="min-h-[70vh] bg-canvas text-body">
+      <DarkPageHeader
+        title="News &"
+        accent="Events"
+        subtitle="Announcements, articles, tutorials and research from the club — plus every workshop, contest and seminar we run."
+        breadcrumbs={[{ label: 'News' }]}
+      />
+
+      <section className="container max-w-7xl 2xl:max-w-screen-2xl py-10 md:py-12">
+        <NewsDirectory posts={posts} initialCategory={initialCategory} />
+      </section>
+    </div>
   );
 }

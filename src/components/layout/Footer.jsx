@@ -17,7 +17,7 @@ function FooterLinks({ title, links }) {
       <ul className="space-y-2 text-sm">
         {links.map((link) => (
           <li key={link.href}>
-            <Link href={link.href} className="text-gray-600 hover:text-primary-600">{link.label}</Link>
+            <Link href={link.href} className="text-muted hover:text-orange-600 dark:hover:text-orange-400">{link.label}</Link>
           </li>
         ))}
       </ul>
@@ -35,12 +35,12 @@ export default function Footer() {
   const socials = Object.entries(siteConfig.social).filter(([, url]) => url);
 
   return (
-    <footer className="border-t border-gray-200 bg-gray-50">
+    <footer className="border-t border-line/10 bg-canvas">
       <Container className="grid gap-10 py-12 md:grid-cols-4">
         <div className="md:col-span-2">
           <Logo />
-          <p className="mt-3 max-w-sm text-sm text-gray-600">{siteConfig.description}</p>
-          <div className="mt-4 space-y-1 text-sm text-gray-600">
+          <p className="mt-3 max-w-sm text-sm text-muted">{siteConfig.description}</p>
+          <div className="mt-4 space-y-1 text-sm text-muted">
             <p>{siteConfig.contact.address}</p>
             {siteConfig.contact.email && <p>{siteConfig.contact.email}</p>}
             {siteConfig.contact.phone && <p>{siteConfig.contact.phone}</p>}
@@ -50,7 +50,7 @@ export default function Footer() {
               {socials.map(([key, url]) => {
                 const Icon = SOCIAL_ICONS[key];
                 return (
-                  <a key={key} href={url} target="_blank" rel="noopener noreferrer" aria-label={key} className="text-gray-500 hover:text-primary-600">
+                  <a key={key} href={url} target="_blank" rel="noopener noreferrer" aria-label={key} className="text-subtle hover:text-orange-600 dark:hover:text-orange-400">
                     {Icon && <Icon size={20} />}
                   </a>
                 );
@@ -62,8 +62,8 @@ export default function Footer() {
         <FooterLinks title="Legal" links={legalNav} />
       </Container>
 
-      <div className="border-t border-gray-200">
-        <Container className="flex flex-col items-center justify-between gap-2 py-4 text-xs text-gray-500 sm:flex-row">
+      <div className="border-t border-line/10">
+        <Container className="flex flex-col items-center justify-between gap-2 py-4 text-xs text-subtle sm:flex-row">
           <p>© {new Date().getFullYear()} {siteConfig.name}. All rights reserved.</p>
           {visitors && (
             <p>

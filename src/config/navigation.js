@@ -1,5 +1,5 @@
 import { TbLayoutDashboard } from 'react-icons/tb';
-import { FaGlobe, FaEnvelope } from 'react-icons/fa';
+import { FaGlobe, FaEnvelope, FaNewspaper, FaUsers, FaUserTie, FaUserGraduate, FaIdCard, FaLock, FaInfoCircle, FaUserPlus, FaCog } from 'react-icons/fa';
 
 // Public site navigation (Navbar + Footer)
 export const mainNav = [
@@ -9,8 +9,8 @@ export const mainNav = [
   { label: 'Alumni', href: '/alumni' },
   { label: 'News', href: '/news' },
   { label: 'Gallery', href: '/gallery' },
-  { label: 'Collaborations', href: '/collaborations' },
   { label: 'Contact', href: '/contact' },
+  { label: 'Join Us', href: '/join' },
 ];
 
 export const legalNav = [
@@ -20,7 +20,7 @@ export const legalNav = [
   { label: 'Refund Policy', href: '/legal/refundpolicy' },
 ];
 
-// Admin dashboard sidebar
+// Admin dashboard sidebar (admins = faculty)
 export const dashboardNav = [
   {
     title: 'Overview',
@@ -30,10 +30,39 @@ export const dashboardNav = [
     ],
   },
   {
+    title: 'Content',
+    items: [
+      { label: 'News & Events', href: '/dashboard/news', icon: FaNewspaper },
+      { label: 'Executives', href: '/dashboard/executives', icon: FaUserTie },
+      { label: 'Alumni', href: '/dashboard/alumni', icon: FaUserGraduate },
+      { label: 'About Page', href: '/dashboard/about', icon: FaInfoCircle },
+    ],
+  },
+  {
+    title: 'People',
+    items: [
+      { label: 'Membership', href: '/dashboard/membership', icon: FaUserPlus },
+      { label: 'Users', href: '/dashboard/users', icon: FaUsers },
+    ],
+  },
+  {
     title: 'Inbox',
     items: [{ label: 'Contact Messages', href: '/dashboard/contact-messages', icon: FaEnvelope }],
   },
+  {
+    title: 'System',
+    items: [
+      { label: 'Settings', href: '/dashboard/settings', icon: FaCog },
+      { label: 'My Profile', href: '/dashboard/profile', icon: FaIdCard },
+    ],
+  },
+];
+
+// Tabs on /account (students & alumni)
+export const accountNav = [
+  { label: 'Profile', href: '/account', icon: FaIdCard },
+  { label: 'Password', href: '/account/security', icon: FaLock },
 ];
 
 // Routes where the public Navbar/Footer are hidden
-export const appOnlyRoutes = ['/dashboard', '/login'];
+export const appOnlyRoutes = ['/dashboard', '/account', '/login', '/register'];

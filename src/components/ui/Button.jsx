@@ -3,9 +3,9 @@ import { cn } from '@/lib/utils';
 
 const VARIANTS = {
   primary: 'bg-primary-600 text-white hover:bg-primary-700',
-  secondary: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50',
+  secondary: 'border border-line/20 bg-surface text-body hover:bg-line/5',
   danger: 'bg-red-600 text-white hover:bg-red-700',
-  ghost: 'text-gray-600 hover:bg-gray-100',
+  ghost: 'text-muted hover:bg-line/10',
 };
 
 const SIZES = {

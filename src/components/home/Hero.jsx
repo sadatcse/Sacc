@@ -33,7 +33,7 @@ function Orbit() {
 
       {/* Center logo */}
       <motion.div
-        className="absolute inset-[32%] flex items-center justify-center rounded-full bg-neutral-950/80 p-[12%] ring-1 ring-white/10"
+        className="absolute inset-[32%] flex items-center justify-center rounded-full bg-canvas-2/80 p-[12%] ring-1 ring-line/10"
         animate={{ scale: [1, 1.05, 1] }}
         transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
       >
@@ -51,7 +51,7 @@ function Orbit() {
               style={{ left: `${50 + RADIUS * Math.cos(angle)}%`, top: `${50 + RADIUS * Math.sin(angle)}%` }}
             >
               <motion.span
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-orange-500/60 bg-neutral-900 text-base text-orange-400 shadow-[0_0_18px_rgba(249,115,22,0.35)] sm:h-14 sm:w-14 sm:text-xl"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-orange-500/60 bg-surface text-base text-orange-600 dark:text-orange-400 shadow-[0_0_18px_rgba(249,115,22,0.35)] sm:h-14 sm:w-14 sm:text-xl"
                 animate={{ rotate: -360 }}
                 transition={{ duration: 40, repeat: Infinity, ease: 'linear' }}
               >
@@ -68,25 +68,25 @@ function Orbit() {
 export default function Hero() {
   const [first, second, accent] = hero.title;
   return (
-    <section className="relative overflow-hidden bg-neutral-950">
+    <section className="relative overflow-hidden bg-canvas-2">
       {/* Background: red radial glow + faint grid */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_70%_50%,rgba(220,38,38,0.25),transparent_60%)]" />
-      <div className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:linear-gradient(#fff_1px,transparent_1px),linear-gradient(90deg,#fff_1px,transparent_1px)] [background-size:48px_48px]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:linear-gradient(#888_1px,transparent_1px),linear-gradient(90deg,#888_1px,transparent_1px)] [background-size:48px_48px]" />
 
-      <div className="container relative grid max-w-7xl items-center gap-12 py-16 md:py-24 lg:grid-cols-2">
+      <div className="container relative grid max-w-7xl 2xl:max-w-screen-2xl items-center gap-12 py-16 md:py-24 lg:grid-cols-2">
         <div>
-          <motion.h1 {...fadeUp(0)} className="text-4xl font-extrabold leading-tight text-white sm:text-5xl lg:text-6xl">
+          <motion.h1 {...fadeUp(0)} className="text-4xl font-extrabold leading-tight text-ink sm:text-5xl lg:text-6xl">
             {first}
             <br />
             {second} <span className="text-orange-500">{accent}</span>
           </motion.h1>
-          <motion.p {...fadeUp(0.1)} className="mt-3 text-lg font-medium text-neutral-200 sm:text-xl">
+          <motion.p {...fadeUp(0.1)} className="mt-3 text-lg font-medium text-ink-2 sm:text-xl">
             {hero.subtitle}
           </motion.p>
-          <motion.p {...fadeUp(0.2)} className="mt-6 max-w-md text-xl font-semibold text-orange-400 sm:text-2xl">
+          <motion.p {...fadeUp(0.2)} className="mt-6 max-w-md text-xl font-semibold text-orange-600 dark:text-orange-400 sm:text-2xl">
             {hero.tagline}
           </motion.p>
-          <motion.p {...fadeUp(0.3)} className="mt-5 max-w-md text-neutral-400">
+          <motion.p {...fadeUp(0.3)} className="mt-5 max-w-md text-muted">
             {hero.description}
           </motion.p>
           <motion.div {...fadeUp(0.4)} className="mt-8 flex flex-wrap gap-4">

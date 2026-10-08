@@ -17,7 +17,7 @@ export default function ConfirmDialog({ open, title = 'Are you sure?', message, 
         </>
       }
     >
-      <p className="text-sm text-gray-600">{message}</p>
+      <p className="text-sm text-muted">{message}</p>
     </Modal>
   );
 }

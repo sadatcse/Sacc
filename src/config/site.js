@@ -12,7 +12,7 @@ export const siteConfig = {
     address: 'University of South Asia, Dhaka, Bangladesh',
   },
   social: {
-    facebook: '',
+    facebook: 'https://www.facebook.com/southasiacomputerclub',
     linkedin: '',
     github: '',
     youtube: '',

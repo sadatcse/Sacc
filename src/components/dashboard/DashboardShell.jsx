@@ -5,6 +5,7 @@ import { HiMenuAlt2 } from 'react-icons/hi';
 import useAuth from '@/hooks/useAuth';
 import Spinner from '@/components/ui/Spinner';
 import Logo from '@/components/layout/Logo';
+import ThemeToggle from '@/components/layout/ThemeToggle';
 import Sidebar from './Sidebar';
 
 export default function DashboardShell({ children }) {
@@ -12,22 +13,23 @@ export default function DashboardShell({ children }) {
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  // The proxy already blocks unauthenticated requests; this covers an expired Firebase session.
+  // The proxy already blocks non-admins; this covers a session that expired while the page was open.
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
+    else if (!loading && user.role !== 'admin') router.replace('/account');
   }, [loading, user, router]);
 
-  if (loading || !user) {
+  if (loading || !user || user.role !== 'admin') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-canvas">
         <Spinner label="Checking your session…" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {sidebarOpen && <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+    <div className="min-h-screen bg-canvas">
+      {sidebarOpen && <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
       <aside
         className={`fixed inset-y-0 left-0 z-50 transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
@@ -36,13 +38,16 @@ export default function DashboardShell({ children }) {
       </aside>
 
       <div className="lg:pl-64">
-        <div className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 lg:hidden">
+        <div className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-line/10 bg-surface px-4 lg:hidden">
           <Logo />
-          <button type="button" onClick={() => setSidebarOpen(true)} className="rounded p-2 text-gray-700 hover:bg-gray-100" aria-label="Open menu">
-            <HiMenuAlt2 size={22} />
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button type="button" onClick={() => setSidebarOpen(true)} className="rounded p-2 text-body hover:bg-line/10" aria-label="Open menu">
+              <HiMenuAlt2 size={22} />
+            </button>
+          </div>
         </div>
-        <main className="p-4 md:p-8">{children}</main>
+        <main className="mx-auto max-w-[1600px] p-4 md:p-8">{children}</main>
       </div>
     </div>
   );

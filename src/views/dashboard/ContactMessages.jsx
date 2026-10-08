@@ -29,8 +29,8 @@ const STATUS_FILTER = [
 function DetailRow({ label, children }) {
   return (
     <div className="grid grid-cols-3 gap-2 py-2 text-sm">
-      <dt className="text-gray-500">{label}</dt>
-      <dd className="col-span-2 break-words text-gray-900">{children || '—'}</dd>
+      <dt className="text-subtle">{label}</dt>
+      <dd className="col-span-2 break-words text-ink">{children || '—'}</dd>
     </div>
   );
 }
@@ -99,8 +99,8 @@ export default function ContactMessages() {
       header: 'From',
       render: (r) => (
         <div>
-          <p className={r.status === 'unread' ? 'font-semibold text-gray-900' : ''}>{r.fullName}</p>
-          <p className="text-xs text-gray-500">{r.email}</p>
+          <p className={r.status === 'unread' ? 'font-semibold text-ink' : ''}>{r.fullName}</p>
+          <p className="text-xs text-subtle">{r.email}</p>
         </div>
       ),
     },
@@ -158,14 +158,14 @@ export default function ContactMessages() {
         {selected && (
           <>
             <Alert type="error" className="mb-3">{actionError}</Alert>
-            <dl className="divide-y divide-gray-100">
+            <dl className="divide-y divide-line/5">
               <DetailRow label="Name">{selected.fullName}</DetailRow>
               <DetailRow label="Email">{selected.email}</DetailRow>
               <DetailRow label="Phone">{selected.phone}</DetailRow>
               <DetailRow label="Status"><Badge color={STATUS_COLORS[selected.status]}>{selected.status}</Badge></DetailRow>
               <DetailRow label="Received">{formatDate(selected.createdAt, true)}</DetailRow>
             </dl>
-            <p className="mt-4 whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-sm text-gray-700">{selected.message}</p>
+            <p className="mt-4 whitespace-pre-wrap rounded-lg bg-canvas p-4 text-sm text-body">{selected.message}</p>
           </>
         )}
       </Modal>

@@ -25,7 +25,7 @@ export const about = {
     { icon: FaCalendarAlt, value: 30, suffix: '+', label: 'Events' },
     { icon: FaProjectDiagram, value: 100, suffix: '+', label: 'Projects' },
     { icon: FaTools, value: 20, suffix: '+', label: 'Workshops' },
-    { icon: FaTrophy, value: 2023, suffix: '', label: 'Since' },
+    { icon: FaTrophy, value: 2024, suffix: '', label: 'Since' },
   ],
 };
 
@@ -59,53 +59,8 @@ export const projects = [
   { title: 'Traffic Sign Detection', image: unsplash('1449824913935-59a10b8d2000', 600) },
 ];
 
-export const events = [
-  { day: '25', month: 'MAY', title: 'Programming Contest', text: 'Test your algorithms in our intra-university programming contest.', image: unsplash('1555066931-4365d14bab8c', 600) },
-  { day: '10', month: 'JUN', title: 'Robotics Competition', text: 'Showcase your robotics skills and innovation.', image: unsplash('1535378620166-273708d44e4c', 600) },
-  { day: '16', month: 'JUN', title: 'Seminar on AI', text: 'Expert talk on the future of Artificial Intelligence.', image: unsplash('1540575467063-178a50c2df87', 600) },
-  { day: '05', month: 'JUL', title: 'Idea & Innovation Fair', text: 'Present your ideas and innovations to experts.', image: unsplash('1591453089816-0fbb971b454c', 600) },
-];
-
-export const achievements = {
-  items: [
-    { icon: FaTrophy, label: 'Programming Contests' },
-    { icon: FaRobot, label: 'Robotics Competitions' },
-    { icon: FaProjectDiagram, label: 'Project Showcases' },
-    { icon: FaChalkboardTeacher, label: 'Seminars & Workshops' },
-    { icon: FaLightbulb, label: 'IEEE Activities' },
-  ],
-  photos: [
-    unsplash('1528605248644-14dd04022da1', 500),
-    unsplash('1531545514256-b1400bc00f31', 500),
-    unsplash('1559223607-a43c990c692c', 500),
-    unsplash('1543269865-cbf427effbad', 500),
-    unsplash('1511578314322-379afb476865', 500),
-  ],
-};
-
-export const workshops = [
-  { day: '23', month: 'MAY', title: 'Workshop on Web Development', image: unsplash('1515378791036-0648a3ef77b2', 600) },
-  { day: '29', month: 'MAY', title: 'Workshop on Python & ML', image: unsplash('1677442136019-21780ecad995', 600) },
-  { day: '05', month: 'JUN', title: 'Seminar on Cyber Security', image: unsplash('1550751827-4bd374c3f58b', 600) },
-  { day: '12', month: 'JUN', title: 'Workshop on Robotics', image: unsplash('1558346490-a72e53ae2d4f', 600) },
-];
-
-export const advisor = {
-  name: 'Dr. Md. Ismail Jabiullah',
-  lines: ['Advisor, SACC', 'Associate Professor & Head', 'Department of CSE', 'University of South Asia'],
-};
-
 export const alumniText =
   'Our strong alumni network supports students through mentorship, career guidance and real-world exposure.';
-
-export const gallery = [
-  unsplash('1523240795612-9a054b0db644', 500),
-  unsplash('1529070538774-1843cb3265df', 500),
-  unsplash('1517048676732-d65bc937f952', 500),
-  unsplash('1524178232363-1fb2b075b655', 500),
-  unsplash('1505373877841-8d25f7d46678', 500),
-  unsplash('1531482615713-2afd69097998', 500),
-];
 
 export const exploreCse = [
   { icon: FaBook, label: 'Programs' },

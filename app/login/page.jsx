@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import LoginView from '@/views/LoginView';
 import Spinner from '@/components/ui/Spinner';
 
-export const metadata = { title: 'Admin Login', robots: { index: false, follow: false } };
+export const metadata = { title: 'Sign in', robots: { index: false, follow: false } };
 
 export default function Page() {
   return (

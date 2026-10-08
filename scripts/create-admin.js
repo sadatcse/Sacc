@@ -1,7 +1,8 @@
-// Creates or updates an admin account.
+// Creates an admin (faculty) account, or promotes / resets an existing one.
 //   npm run create-admin -- admin@example.com "StrongPassword123" "Your Name"
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
+import User, { MIN_PASSWORD_LENGTH } from '../src/models/User.js';
+import AdminProfile from '../src/models/AdminProfile.js';
 
 const [email, password, name = ''] = process.argv.slice(2);
 
@@ -9,8 +10,8 @@ if (!email || !password) {
   console.error('Usage: npm run create-admin -- <email> <password> [name]');
   process.exit(1);
 }
-if (password.length < 8) {
-  console.error('Password must be at least 8 characters.');
+if (password.length < MIN_PASSWORD_LENGTH) {
+  console.error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
   process.exit(1);
 }
 if (!process.env.MONGO_URI) {
@@ -18,23 +19,14 @@ if (!process.env.MONGO_URI) {
   process.exit(1);
 }
 
-const UserSchema = new mongoose.Schema(
-  {
-    name: String,
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password: { type: String, required: true },
-    role: { type: String, default: 'admin' },
-  },
-  { timestamps: true }
-);
-const User = mongoose.models.User || mongoose.model('User', UserSchema);
-
 await mongoose.connect(process.env.MONGO_URI);
-const hash = await bcrypt.hash(password, 12);
-await User.findOneAndUpdate(
-  { email: email.toLowerCase().trim() },
-  { $set: { password: hash, role: 'admin', ...(name && { name }) } },
-  { upsert: true, returnDocument: 'after' }
-);
-console.log(`Admin ready: ${email}`);
+let user = await User.findOne({ email: email.toLowerCase().trim() });
+if (user) {
+  Object.assign(user, { password, role: 'admin', status: 'active', ...(name && { name }) });
+} else {
+  user = new User({ email, password, role: 'admin', name: name || email.split('@')[0] });
+}
+await user.save(); // the model hashes the password
+await AdminProfile.updateOne({ user: user._id }, { $setOnInsert: { user: user._id } }, { upsert: true });
+console.log(`Admin ready: ${user.email}`);
 await mongoose.disconnect();

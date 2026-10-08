@@ -1,12 +1,17 @@
 'use client';
 import { useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { FaUserPlus } from 'react-icons/fa';
 import useAuth from '@/hooks/useAuth';
-import { siteConfig } from '@/config/site';
-import Button from '@/components/ui/Button';
-import Alert from '@/components/ui/Alert';
-import { Input } from '@/components/forms/FormField';
-import Logo from '@/components/layout/Logo';
+import AuthCard, { AuthButton, AuthError, AuthInput } from '@/components/auth/AuthCard';
+
+// Only send people back to a page their role can open
+function safeRedirect(from, role, fallback) {
+  if (!from || !from.startsWith('/') || from.startsWith('//')) return fallback;
+  if (from.startsWith('/dashboard') && role !== 'admin') return fallback;
+  return from;
+}
 
 export default function LoginView() {
   const { signIn } = useAuth();
@@ -21,9 +26,9 @@ export default function LoginView() {
     setSubmitting(true);
     setError('');
     try {
-      await signIn(email, password);
+      const { user, redirectTo } = await signIn(email, password);
       // Full reload so the proxy sees the new cookie
-      window.location.href = searchParams?.get('from') || '/dashboard';
+      window.location.href = safeRedirect(searchParams?.get('from'), user.role, redirectTo);
     } catch (err) {
       setError(err.message);
       setSubmitting(false);
@@ -31,20 +36,28 @@ export default function LoginView() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-        <div className="mb-6 flex flex-col items-center text-center">
-          <Logo />
-          <h1 className="mt-4 text-2xl">Admin sign in</h1>
-          <p className="mt-1 text-sm text-gray-500">{siteConfig.name}</p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Alert type="error">{error}</Alert>
-          <Input label="Email" name="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <Input label="Password" name="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          <Button type="submit" className="w-full" disabled={submitting}>{submitting ? 'Signing in…' : 'Sign in'}</Button>
-        </form>
-      </div>
-    </div>
+    <AuthCard
+      title="Welcome back"
+      subtitle="Sign in as a student, alumnus or faculty member."
+      footer={
+        <>
+          New here?{' '}
+          <Link href="/register" className="font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300">Create an account</Link>
+          <Link
+            href="/join"
+            className="mx-auto mt-4 flex w-fit items-center gap-2 rounded-lg border border-orange-500/40 px-4 py-2 text-sm font-semibold text-orange-600 transition-colors hover:bg-orange-500/10 dark:text-orange-400"
+          >
+            <FaUserPlus aria-hidden /> Want to become a club member? Join Us
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <AuthError>{error}</AuthError>
+        <AuthInput label="Email" name="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <AuthInput label="Password" name="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <AuthButton disabled={submitting}>{submitting ? 'Signing in…' : 'Sign in'}</AuthButton>
+      </form>
+    </AuthCard>
   );
 }
