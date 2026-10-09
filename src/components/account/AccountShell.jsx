@@ -6,10 +6,10 @@ import { CiLogout } from 'react-icons/ci';
 import { TbLayoutDashboard } from 'react-icons/tb';
 import useAuth from '@/hooks/useAuth';
 import { accountNav } from '@/config/navigation';
-import { ROLE_LABELS } from '@/config/profiles';
 import { cn } from '@/lib/utils';
 import Logo from '@/components/layout/Logo';
-import Spinner from '@/components/ui/Spinner';
+import Skeleton from '@/components/ui/Skeleton';
+import { FormSkeleton } from '@/components/loading/PageSkeletons';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 
 // Layout for /account — any signed-in user (students and alumni land here; admins can visit too)
@@ -24,8 +24,20 @@ export default function AccountShell({ children }) {
 
   if (loading || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas">
-        <Spinner label="Checking your session…" />
+      <div className="min-h-screen bg-canvas">
+        <div className="h-16 border-b border-line/10 bg-surface" />
+        <div className="bg-gradient-to-r from-neutral-950 via-neutral-900 to-red-950">
+          <div className="container flex max-w-5xl items-center gap-4 py-8">
+            <Skeleton className="h-16 w-16 bg-white/10" rounded="rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-48 bg-white/10" />
+              <Skeleton className="h-4 w-64 bg-white/10" />
+            </div>
+          </div>
+        </div>
+        <div className="container max-w-5xl py-8">
+          <FormSkeleton cards={2} />
+        </div>
       </div>
     );
   }
@@ -68,12 +80,12 @@ export default function AccountShell({ children }) {
           <div>
             <h1 className="text-xl font-bold text-white sm:text-2xl">{user.name}</h1>
             <p className="text-sm text-neutral-300">
-              {ROLE_LABELS[user.role]} · {user.email}
+              {user.email}
             </p>
           </div>
         </div>
         <nav className="container flex max-w-5xl gap-1 overflow-x-auto" aria-label="Account">
-          {accountNav.map(({ label, href, icon: Icon }) => (
+          {accountNav.filter((item) => !item.roles || item.roles.includes(user.role)).map(({ label, href, icon: Icon }) => (
             <Link
               key={href}
               href={href}

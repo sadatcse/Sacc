@@ -2,12 +2,11 @@
 import { useState } from 'react';
 import useAuth from '@/hooks/useAuth';
 import { apiSecure, apiError } from '@/lib/api-client';
-import { LINK_FIELDS, PROFILE_CONFIG, ROLE_LABELS, formField } from '@/config/profiles';
+import { LINK_FIELDS, PROFILE_CONFIG, formField } from '@/config/profiles';
 import EntityForm, { setPath } from '@/components/forms/EntityForm';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
-import Badge from '@/components/ui/Badge';
 
 // Form fields for a role, built from src/config/profiles.js
 function profileFields(role) {
@@ -41,7 +40,6 @@ export default function ProfileForm() {
   const [status, setStatus] = useState({ type: '', message: '' });
 
   if (!user) return null;
-  const config = PROFILE_CONFIG[user.role];
 
   const save = async (e) => {
     e.preventDefault();
@@ -61,18 +59,17 @@ export default function ProfileForm() {
 
   return (
     <form onSubmit={save} className="space-y-6">
-      <Card
-        title="Account"
-        action={<Badge color={user.role === 'admin' ? 'red' : user.role === 'alumni' ? 'amber' : 'blue'}>{ROLE_LABELS[user.role]}</Badge>}
-      >
+      <Card title="Account">
         <EntityForm fields={ACCOUNT_FIELDS} values={values} onChange={(n, v) => setValues((s) => setPath(s, n, v))} disabled={saving} />
-        <p className="mt-3 text-xs text-subtle">Signed in as <span className="font-medium text-body">{user.email}</span>. Ask an admin to change your email or role.</p>
+        <p className="mt-3 text-xs text-subtle">Signed in as <span className="font-medium text-body">{user.email}</span>. Ask an admin if you need to change your email.</p>
       </Card>
 
-      <Card title={config.title}>
+      <Card title="Profile details">
         {user.role === 'alumni' && (
-          <Alert type={profile?.approved ? 'success' : 'info'} className="mb-4">
-            {profile?.approved ? (
+          <Alert type={profile?.hideProfile ? 'warning' : profile?.approved ? 'success' : 'info'} className="mb-4">
+            {profile?.hideProfile ? (
+              'Your profile is hidden from the website because you ticked “Hide my profile” (under Privacy below). Untick it and save to be listed again.'
+            ) : profile?.approved ? (
               <>
                 Your profile is listed in the public Alumni directory —{' '}
                 <a href={`/alumni/${profile.slug}`} target="_blank" rel="noopener noreferrer" className="font-semibold underline">view your public page</a>.

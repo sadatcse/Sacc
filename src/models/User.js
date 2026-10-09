@@ -5,7 +5,8 @@ import bcrypt from 'bcryptjs';
 // student = current students (StudentProfile)
 // alumni  = graduates (AlumniProfile, listed in the Alumni directory once approved)
 export const ROLES = ['admin', 'student', 'alumni'];
-export const USER_STATUSES = ['active', 'suspended'];
+// pending = signed up (register page or Join form) and waiting for an admin to approve the account
+export const USER_STATUSES = ['active', 'pending', 'suspended'];
 export const MIN_PASSWORD_LENGTH = 8;
 
 const UserSchema = new mongoose.Schema(

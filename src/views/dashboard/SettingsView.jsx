@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { FaClock, FaUserPlus, FaPalette, FaExternalLinkAlt } from 'react-icons/fa';
+import { FaClock, FaUserPlus, FaPalette, FaExternalLinkAlt, FaEnvelopeOpenText, FaPaperPlane } from 'react-icons/fa';
 import useApi from '@/hooks/useApi';
+import useAuth from '@/hooks/useAuth';
 import { apiSecure, apiError } from '@/lib/api-client';
 import { DEFAULT_TIME_ZONE, offsetLabel, setTimeZone } from '@/lib/timezone';
 import { cn } from '@/lib/utils';
@@ -11,7 +12,7 @@ import ThemeToggle from '@/components/layout/ThemeToggle';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
-import Spinner from '@/components/ui/Spinner';
+import { FormSkeleton } from '@/components/loading/PageSkeletons';
 
 const PINNED_ZONES = ['Asia/Dhaka', 'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Europe/London', 'America/New_York', 'UTC'];
 
@@ -105,6 +106,113 @@ const PAYMENT_FIELDS = [
   { name: 'rocket', label: 'Rocket number', placeholder: '01XXXXXXXXX' },
 ];
 
+const SMTP_FIELDS = [
+  { name: 'host', label: 'SMTP host', placeholder: 'smtp.gmail.com' },
+  { name: 'port', label: 'Port', type: 'number', placeholder: '465', help: '465 = SSL, 587 = STARTTLS' },
+  { name: 'user', label: 'Username', placeholder: 'computerclub@southasiauni.ac.bd', autoComplete: 'off' },
+  { name: 'pass', label: 'Password / app password', type: 'password', autoComplete: 'new-password' },
+  { name: 'secure', label: 'Use SSL (port 465)', type: 'checkbox', full: true },
+  { type: 'heading', label: 'Sender' },
+  { name: 'fromName', label: 'From name', placeholder: 'South Asia Computer Club' },
+  { name: 'fromEmail', label: 'From email', type: 'email', placeholder: 'computerclub@southasiauni.ac.bd' },
+  { name: 'adminEmail', label: 'Club inbox (receives notifications)', type: 'email', full: true },
+  { type: 'heading', label: 'Send these emails' },
+  { name: 'notify.membershipReceived', label: 'Join request received → applicant', type: 'checkbox' },
+  { name: 'notify.membershipApproved', label: 'Membership approved → applicant', type: 'checkbox' },
+  { name: 'notify.membershipRejected', label: 'Membership rejected → applicant', type: 'checkbox' },
+  { name: 'notify.membershipAdmin', label: 'New join request → club inbox', type: 'checkbox' },
+  { name: 'notify.contactAutoReply', label: 'Contact form → "we got your message" to sender', type: 'checkbox' },
+  { name: 'notify.contactAdmin', label: 'Contact form → club inbox', type: 'checkbox' },
+  { name: 'notify.accountReceived', label: 'Alumni / faculty sign-up → "waiting for approval"', type: 'checkbox' },
+  { name: 'notify.accountApproved', label: 'Account approved → user', type: 'checkbox' },
+  { name: 'notify.accountAdmin', label: 'New account to approve → club inbox', type: 'checkbox' },
+];
+
+// Dashboard → Settings → Email: SMTP login, sender, which emails are sent, and a test button
+function EmailSettings() {
+  const { user } = useAuth();
+  const email = useSettingForm('email');
+  const [testTo, setTestTo] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [testStatus, setTestStatus] = useState({ type: '', message: '' });
+  const v = email.values;
+
+  const save = () => email.save({ ...v, port: Number(v.port) || 465 });
+  const sendTest = async () => {
+    setTesting(true);
+    setTestStatus({ type: '', message: '' });
+    try {
+      const res = await apiSecure.post('/settings/email/test', { to: testTo || user?.email });
+      setTestStatus({ type: 'success', message: res.data.message });
+    } catch (err) {
+      setTestStatus({ type: 'error', message: apiError(err, 'Could not send the test email.') });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <Section
+      icon={FaEnvelopeOpenText}
+      title="Email"
+      description="Mail server used for join-request, approval and contact-form emails."
+      footer={
+        <>
+          <Alert type={email.status.type || 'info'} className="mr-auto py-1.5">{email.status.message}</Alert>
+          <Button onClick={save} disabled={email.saving || !email.dirty}>{email.saving ? 'Saving…' : 'Save email settings'}</Button>
+        </>
+      }
+    >
+      {email.loading || !v ? (
+        <FormSkeleton cards={1} />
+      ) : (
+        <>
+          <div className={cn('mb-5 flex items-center justify-between gap-4 rounded-xl border px-4 py-4', v.configured && v.enabled ? 'border-green-500/30 bg-green-500/5' : 'border-amber-500/30 bg-amber-500/5')}>
+            <div>
+              <p className="font-semibold text-ink">
+                {!v.enabled ? 'Email sending is OFF' : v.configured ? 'Email is set up' : 'Email is not set up yet'}
+              </p>
+              <p className="text-sm text-subtle">
+                {v.configured
+                  ? `Sending as ${v.fromEmail || v.user} through ${v.host}:${v.port}${v.passwordFromEnv ? ' (password from .env)' : ''}.`
+                  : 'Fill in the host, username and password below, save, then send a test email.'}
+              </p>
+            </div>
+            <Switch checked={Boolean(v.enabled)} onChange={(on) => email.setDraft((d) => ({ ...d, enabled: on }))} label="Send emails" disabled={email.saving} />
+          </div>
+
+          <EntityForm
+            fields={SMTP_FIELDS.map((f) =>
+              f.name === 'pass' ? { ...f, placeholder: v.hasPassword ? '•••••••• saved — leave empty to keep' : 'Enter the password', help: 'Stored encrypted. For Gmail use an App Password.' } : f
+            )}
+            values={{ ...v, pass: v.pass || '' }}
+            onChange={(name, value) => email.setDraft((d) => setPath(d, name, value))}
+            disabled={email.saving}
+          />
+
+          <div className="mt-6 rounded-xl border border-line/10 bg-canvas p-4">
+            <p className="mb-2 text-sm font-medium text-body">Send a test email</p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                type="email"
+                value={testTo}
+                onChange={(e) => setTestTo(e.target.value)}
+                placeholder={user?.email || 'you@example.com'}
+                className="h-10 flex-1 rounded-lg border border-line/20 bg-surface px-3 text-sm text-ink placeholder-faint focus:border-primary-500 focus:outline-none"
+              />
+              <Button variant="secondary" onClick={sendTest} disabled={testing || email.dirty}>
+                <FaPaperPlane /> {testing ? 'Sending…' : 'Send test'}
+              </Button>
+            </div>
+            {email.dirty && <p className="mt-2 text-xs text-subtle">Save your changes first, then send a test.</p>}
+            <Alert type={testStatus.type || 'info'} className="mt-3">{testStatus.message}</Alert>
+          </div>
+        </>
+      )}
+    </Section>
+  );
+}
+
 export default function SettingsView() {
   const site = useSettingForm('site');
   const membership = useSettingForm('membership');
@@ -137,7 +245,7 @@ export default function SettingsView() {
           }
         >
           {site.loading ? (
-            <Spinner />
+            <FormSkeleton cards={1} />
           ) : (
             <>
               <label htmlFor="timezone" className="mb-1 block text-sm font-medium text-body">Site timezone</label>
@@ -176,7 +284,7 @@ export default function SettingsView() {
           }
         >
           {membership.loading || !membership.values ? (
-            <Spinner />
+            <FormSkeleton cards={1} />
           ) : (
             <>
               <div className={cn('flex items-center justify-between gap-4 rounded-xl border px-4 py-4', membership.values.open ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5')}>
@@ -199,6 +307,8 @@ export default function SettingsView() {
             </>
           )}
         </Section>
+
+        <EmailSettings />
 
         <Section icon={FaPalette} title="Appearance" description="Light, dark or follow the device. Saved in this browser for each visitor.">
           <ThemeToggle variant="row" />

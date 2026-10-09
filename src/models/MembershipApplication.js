@@ -29,6 +29,10 @@ const MembershipApplicationSchema = new mongoose.Schema(
       size: { type: Number, default: 0 },
     },
     status: { type: String, enum: ['draft', 'approved', 'rejected'], default: 'draft', index: true },
+    // The member's login (role student). accountCreated = the Join form created it (pending until approved);
+    // false = the applicant already had an account and linked it with its password.
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+    accountCreated: { type: Boolean, default: false },
     adminNote: { type: String, trim: true, default: '', maxlength: 1000 },
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     reviewedAt: { type: Date },

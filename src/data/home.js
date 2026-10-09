@@ -19,7 +19,7 @@ export const hero = {
 
 export const about = {
   text: 'South Asia Computer Club (SACC) is the official student club of the Department of Computer Science and Engineering at University of South Asia. We aim to create a vibrant community of learners, innovators, and leaders who are passionate about technology and its impact on society.',
-  image: unsplash('1522202176988-66273c2fd55f', 900),
+  image: '/about/club-campus.jpg', // public/about — club members in front of the University of South Asia campus
   stats: [
     { icon: FaUsers, value: 500, suffix: '+', label: 'Students' },
     { icon: FaCalendarAlt, value: 30, suffix: '+', label: 'Events' },
@@ -52,11 +52,11 @@ export const technologies = [
 ];
 
 export const projects = [
-  { title: 'Smart Home Automation', image: unsplash('1558002038-1055907df827', 600) },
-  { title: 'AI-Powered Chatbot', image: unsplash('1620712943543-bcc4688e7485', 600) },
-  { title: 'E-Commerce Web App', image: unsplash('1498050108023-c5249f4df085', 600) },
-  { title: 'Robot Arm Controller', image: unsplash('1581092160562-40aa08e78837', 600) },
-  { title: 'Traffic Sign Detection', image: unsplash('1449824913935-59a10b8d2000', 600) },
+  { title: 'Smart Home Automation', image: '/projects/smart-home-automation.jpg' },
+  { title: 'AI-Powered Chatbot', image: '/projects/ai-chatbot.jpg' },
+  { title: 'E-Commerce Web App', image: '/projects/ecommerce-web-app.jpg' },
+  { title: 'Robot Arm Controller', image: '/projects/robot-arm-controller.jpg' },
+  { title: 'Traffic Sign Detection', image: '/projects/traffic-sign-detection.jpg' },
 ];
 
 export const alumniText =

@@ -1,11 +1,13 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { getServerSession } from '@/lib/auth-guard';
 import {
   FaEnvelope, FaMapMarkerAlt, FaBriefcase, FaGraduationCap,
-  FaTrophy, FaQuoteLeft, FaHandsHelping, FaArrowLeft, FaUserGraduate,
+  FaTrophy, FaQuoteLeft, FaHandsHelping, FaArrowLeft, FaUserGraduate, FaPhoneAlt, FaWhatsapp,
 } from 'react-icons/fa';
 import { siteConfig } from '@/config/site';
+import { formatPhone } from '@/lib/utils';
 import { getAlumniBySlug, getRelatedAlumni } from '@/server/services/alumni.service';
 import DarkPageHeader from '@/components/ui/DarkPageHeader';
 import SocialLinks from '@/components/ui/SocialLinks';
@@ -51,8 +53,10 @@ function Fact({ label, children }) {
   );
 }
 
+// Members only: signed-out visitors go to /login and come back here afterwards (also enforced in proxy.js)
 export default async function Page({ params }) {
   const { slug } = await params;
+  if (!(await getServerSession())) redirect(`/login?from=${encodeURIComponent(`/alumni/${slug}`)}`);
   const a = await getAlumniBySlug(slug);
   if (!a) notFound();
 
@@ -101,6 +105,21 @@ export default async function Page({ params }) {
                   <a href={`mailto:${a.links.email}`} className="inline-flex h-9 items-center gap-2 rounded-md bg-gradient-to-r from-red-600 to-orange-500 px-3 text-sm font-semibold text-white">
                     <FaEnvelope aria-hidden /> Email
                   </a>
+                )}
+                {a.phone && (
+                  <>
+                    <a href={`tel:${a.phone.replace(/[^\d+]/g, '')}`} className="inline-flex h-9 items-center gap-2 rounded-md border border-line/10 px-3 text-sm font-semibold text-body hover:border-orange-500">
+                      <FaPhoneAlt aria-hidden /> {formatPhone(a.phone)}
+                    </a>
+                    <a
+                      href={`https://wa.me/${a.phone.replace(/\D/g, '').replace(/^0(?=1)/, '880')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-9 items-center gap-2 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700"
+                    >
+                      <FaWhatsapp aria-hidden /> WhatsApp
+                    </a>
+                  </>
                 )}
               </div>
             </div>
@@ -228,7 +247,7 @@ export default async function Page({ params }) {
               <Stagger className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {related.map((p) => (
                   <StaggerItem key={p.id}>
-                    <AlumniCard person={p} />
+                    <AlumniCard person={p} signedIn />
                   </StaggerItem>
                 ))}
               </Stagger>

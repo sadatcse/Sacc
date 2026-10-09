@@ -4,7 +4,7 @@ import connectDB from '@/lib/db';
 import AlumniProfile from '@/models/AlumniProfile';
 import '@/models/User'; // registers the model for populate('user')
 import { HttpError } from '@/server/http';
-import { assertId, clean, notFound, str, toPlain } from '@/server/validate';
+import { assertId, clean, links as cleanLinks, notFound, str, toPlain } from '@/server/validate';
 import { escapeRegex } from '@/lib/utils';
 
 // Fields an admin may set (alumni edit their own via src/config/profiles.js)
@@ -12,11 +12,23 @@ const FIELDS = {
   name: 'text', photo: 'url', studentId: 'text', department: 'text', degree: 'text', batch: 'text', shift: 'shift',
   graduationYear: 'number', jobTitle: 'text', company: 'text', industry: 'text', location: 'text', country: 'text',
   bio: 'longtext', quote: 'longtext', skills: 'list', achievements: 'lines', experience: 'experience', education: 'education',
-  links: 'links', openToMentor: 'boolean', showEmail: 'boolean', featured: 'text', approved: 'boolean',
+  links: 'links', openToMentor: 'boolean', showEmail: 'boolean', phone: 'text', showPhone: 'boolean', hideProfile: 'boolean', featured: 'text', approved: 'boolean',
 };
 
 // Shape used by <AlumniDirectory /> on /alumni
-function toDirectoryEntry(a) {
+// Contact details the alumnus chose to share with members (never shown to signed-out visitors)
+function sharedContact(a) {
+  return { email: a.showEmail ? cleanLinks(a.links).email : '', phone: a.showPhone ? a.phone || '' : '' };
+}
+
+// Social links without the email (shown everywhere); invalid / placeholder links are dropped
+function socialLinks(a) {
+  const { email: _email, ...rest } = cleanLinks(a.links || {});
+  return Object.fromEntries(Object.entries(rest).filter(([, v]) => v));
+}
+
+function toDirectoryEntry(a, { withContact = false } = {}) {
+  const contact = sharedContact(a);
   return {
     id: String(a._id),
     slug: a.slug,
@@ -28,15 +40,18 @@ function toDirectoryEntry(a) {
     company: a.company || '',
     location: [a.location, a.country].filter(Boolean).join(', '),
     openToMentor: Boolean(a.openToMentor),
-    links: { linkedin: a.links?.linkedin || '', github: a.links?.github || '', website: a.links?.website || '' },
+    links: socialLinks(a),
+    hasContact: Boolean(contact.email || contact.phone),
+    ...(withContact && { contact }),
     ...(a.featured && { featured: a.featured }),
   };
 }
 
 // Public profile — private fields (user link, approval flag, student ID, hidden email) removed
 function toPublicProfile(a) {
-  const { user, approved, showEmail, studentId, links = {}, ...rest } = a;
-  return toPlain({ ...rest, links: { ...links, email: showEmail ? links.email : '' } });
+  const { user, approved, hideProfile, showEmail, showPhone, phone, studentId, links = {}, ...rest } = a;
+  const contact = sharedContact(a);
+  return toPlain({ ...rest, links: { ...socialLinks(a), email: contact.email }, phone: contact.phone });
 }
 
 // Gives entries without a slug one (the model hook runs on save, not on findOneAndUpdate)
@@ -46,26 +61,30 @@ export async function ensureAlumniSlug(id) {
   return doc?.slug;
 }
 
-export async function getApprovedAlumni() {
+// Shown on the website: approved by an admin and not hidden by the alumnus
+const PUBLIC = { approved: true, hideProfile: { $ne: true } };
+
+// withContact: include shared email / phone (pass true only for signed-in visitors)
+export async function getApprovedAlumni({ withContact = false } = {}) {
   await connectDB();
-  const rows = await AlumniProfile.find({ approved: true }).sort({ name: 1 }).lean();
-  return rows.map(toDirectoryEntry);
+  const rows = await AlumniProfile.find(PUBLIC).sort({ name: 1 }).lean();
+  return rows.map((a) => toDirectoryEntry(a, { withContact }));
 }
 
 export async function getAlumniBySlug(slug) {
   await connectDB();
-  const row = await AlumniProfile.findOne({ slug: str(slug, 160).toLowerCase(), approved: true }).lean();
+  const row = await AlumniProfile.findOne({ ...PUBLIC, slug: str(slug, 160).toLowerCase() }).lean();
   return row ? toPublicProfile(row) : null;
 }
 
-// Same batch first, then same company — for "More alumni" on the profile page
+// Same batch first, then same company — for "More alumni" on the (members-only) profile page
 export async function getRelatedAlumni(profile, limit = 4) {
   await connectDB();
   const or = [profile.batch && { batch: profile.batch }, profile.company && { company: profile.company }].filter(Boolean);
   if (!or.length) return [];
-  const rows = await AlumniProfile.find({ approved: true, _id: { $ne: profile._id }, $or: or }).limit(20).lean();
+  const rows = await AlumniProfile.find({ ...PUBLIC, _id: { $ne: profile._id }, $or: or }).limit(20).lean();
   const score = (a) => (a.batch === profile.batch ? 2 : 0) + (a.company === profile.company ? 1 : 0);
-  return rows.sort((a, b) => score(b) - score(a)).slice(0, limit).map(toDirectoryEntry);
+  return rows.sort((a, b) => score(b) - score(a)).slice(0, limit).map((a) => toDirectoryEntry(a, { withContact: true }));
 }
 
 // ---------- admin ----------
@@ -110,6 +129,10 @@ export async function deleteAlumni(id) {
 }
 
 export async function countAlumni() {
-  const [approved, pending] = await Promise.all([AlumniProfile.countDocuments({ approved: true }), AlumniProfile.countDocuments({ approved: false })]);
-  return { approved, pending };
+  const [approved, pending, hidden] = await Promise.all([
+    AlumniProfile.countDocuments({ approved: true }),
+    AlumniProfile.countDocuments({ approved: false }),
+    AlumniProfile.countDocuments({ hideProfile: true }),
+  ]);
+  return { approved, pending, hidden };
 }

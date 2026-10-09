@@ -61,6 +61,7 @@ export async function updateProfile(user, input = {}) {
 export async function authenticate(email, password) {
   const user = await User.findOne({ email: str(email, 160).toLowerCase() }).select('+password');
   if (!user || !(await user.checkPassword(password))) throw new HttpError(401, 'Incorrect email or password.');
+  if (user.status === 'pending') throw new HttpError(403, 'Your account is waiting for approval. We will email you as soon as an admin approves it.');
   if (user.status === 'suspended') throw new HttpError(403, 'This account is suspended. Please contact an admin.');
   user.lastLoginAt = new Date();
   await user.save();
@@ -92,10 +93,29 @@ export async function listUsers({ role, status, search } = {}) {
     filter.$or = [{ name: re }, { email: re }, { phone: re }];
   }
   const users = await User.find(filter).sort({ createdAt: -1 }).limit(1000).lean();
-  return users.map(toPublicUser);
+  // Accounts waiting for approval carry what they signed up with, so the admin can check it
+  const pending = users.filter((u) => u.status === 'pending');
+  const details = new Map(
+    await Promise.all(
+      pending.map(async (u) => {
+        const p = (await PROFILE_MODELS[u.role].findOne({ user: u._id }).select('studentId batch department designation').lean()) || {};
+        return [String(u._id), { studentId: p.studentId, batch: p.batch, department: p.department, designation: p.designation }];
+      })
+    )
+  );
+  return users.map((u) => ({ ...toPublicUser(u), ...(details.has(String(u._id)) && { signup: details.get(String(u._id)) }) }));
+}
+
+// Pending → active: the login works from now on and an alumni's directory entry goes live with it
+// (the account and the directory entry are one record, approved together).
+export async function activateUser(userOrId) {
+  const user = await User.findOneAndUpdate({ _id: userOrId._id || userOrId, status: 'pending' }, { $set: { status: 'active' } }, { returnDocument: 'after' }).lean();
+  if (user?.role === 'alumni') await AlumniProfile.updateOne({ user: user._id }, { $set: { approved: true } });
+  return user; // null when it wasn't pending
 }
 
 // Admin update. A role change gives the user an (empty) profile for the new role.
+// `user.activated` is true when this update approved a pending account.
 export async function updateUser(id, input, { actorId } = {}) {
   assertId(id, 'user');
   const data = cleanAccount(input);
@@ -104,14 +124,19 @@ export async function updateUser(id, input, { actorId } = {}) {
   }
   const user = await User.findById(id).select('+password');
   if (!user) throw notFound('User');
+  const wasPending = user.status === 'pending';
   Object.assign(user, data);
   if (input.password) {
     checkPassword(input.password);
     user.password = String(input.password);
   }
   await user.save();
-  if (user.role === 'alumni') await AlumniProfile.updateOne({ user: user._id }, { $set: { name: user.name } });
+  const activated = wasPending && user.status === 'active';
+  if (user.role === 'alumni') {
+    await AlumniProfile.updateOne({ user: user._id }, { $set: { name: user.name, ...(activated && { approved: true }) } });
+  }
   await getProfile(user);
+  user.activated = activated;
   return user;
 }
 

@@ -8,7 +8,7 @@ import PageTitle from '@/components/dashboard/PageTitle';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
-import Spinner from '@/components/ui/Spinner';
+import { FormSkeleton } from '@/components/loading/PageSkeletons';
 
 const TEXT_FIELDS = [
   { name: 'title', label: 'Heading', placeholder: 'About' },
@@ -52,7 +52,7 @@ export default function AboutEditor() {
       .catch((err) => setStatus({ type: 'error', message: apiError(err, 'Could not load the About page.') }));
   }, []);
 
-  if (!values) return status.message ? <Alert type="error">{status.message}</Alert> : <Spinner label="Loading…" />;
+  if (!values) return status.message ? <Alert type="error">{status.message}</Alert> : <FormSkeleton cards={3} />;
 
   const save = async (e) => {
     e.preventDefault();

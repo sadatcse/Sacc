@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { HiMenuAlt2 } from 'react-icons/hi';
 import useAuth from '@/hooks/useAuth';
-import Spinner from '@/components/ui/Spinner';
+import Skeleton from '@/components/ui/Skeleton';
+import { DashboardSkeleton } from '@/components/loading/PageSkeletons';
 import Logo from '@/components/layout/Logo';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import Sidebar from './Sidebar';
@@ -21,8 +22,16 @@ export default function DashboardShell({ children }) {
 
   if (loading || !user || user.role !== 'admin') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas">
-        <Spinner label="Checking your session…" />
+      <div className="min-h-screen bg-canvas">
+        <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-line/10 bg-surface p-5 lg:block" aria-hidden>
+          <Skeleton className="h-8 w-28" />
+          {Array.from({ length: 9 }, (_, i) => <Skeleton key={i} className="mt-5 h-5 w-40" />)}
+        </aside>
+        <div className="lg:pl-64">
+          <div className="mx-auto max-w-[1600px] p-4 md:p-8">
+            <DashboardSkeleton />
+          </div>
+        </div>
       </div>
     );
   }

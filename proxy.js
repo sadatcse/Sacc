@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
+import { isMembersOnlyPath, safeRedirect } from '@/lib/redirect';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 const ALLOWED_ORIGINS = [SITE_URL, 'http://localhost:3000', 'http://localhost:3001'];
@@ -18,7 +19,7 @@ const homeForRole = (role) => (role === 'admin' ? '/dashboard' : '/account');
 
 function redirectToLogin(request, pathname, hadToken) {
   const loginUrl = new URL('/login', request.url);
-  loginUrl.searchParams.set('from', pathname);
+  loginUrl.searchParams.set('from', pathname + request.nextUrl.search);
   const response = NextResponse.redirect(loginUrl);
   if (hadToken) response.cookies.delete('token');
   return response;
@@ -63,14 +64,18 @@ export function proxy(request) {
   // 3. /account → any signed-in user
   if (pathname.startsWith('/account') && !session) return redirectToLogin(request, pathname, Boolean(token));
 
-  // 4. Signed-in users skip the login / register pages
+  // 4. Members-only pages (alumni profiles) → any signed-in user; others sign in and come back
+  if (isMembersOnlyPath(pathname) && !session) return redirectToLogin(request, pathname, Boolean(token));
+
+  // 5. Signed-in users skip the login / register pages (back to where they were going, or their home)
   if ((pathname === '/login' || pathname === '/register') && session) {
-    return NextResponse.redirect(new URL(homeForRole(session.role), request.url));
+    const target = safeRedirect(request.nextUrl.searchParams.get('from'), session.role, homeForRole(session.role));
+    return NextResponse.redirect(new URL(target, request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/api/:path*', '/dashboard/:path*', '/account/:path*', '/login', '/register'],
+  matcher: ['/api/:path*', '/dashboard/:path*', '/account/:path*', '/alumni/:slug', '/login', '/register'],
 };

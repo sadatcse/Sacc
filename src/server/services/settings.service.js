@@ -5,6 +5,8 @@ import Setting from '@/models/Setting';
 import { HttpError } from '@/server/http';
 import { str, toPlain } from '@/server/validate';
 import { DEFAULT_TIME_ZONE, isValidTimeZone } from '@/lib/timezone';
+import { encryptSecret } from '@/lib/secret-box';
+import { siteConfig } from '@/config/site';
 
 export const DEFAULTS = {
   site: {
@@ -54,15 +56,58 @@ export const DEFAULTS = {
     rocket: '',
     reference: 'Your name_Student ID (e.g. Rahim_221000101)',
   },
+  // Outgoing email (SMTP). Empty fields fall back to the SMTP_* variables in .env.
+  // The password is stored encrypted as passEnc and never sent to the browser.
+  email: {
+    enabled: true,
+    host: process.env.SMTP_HOST || '',
+    port: Number(process.env.SMTP_PORT) || 465,
+    secure: (Number(process.env.SMTP_PORT) || 465) === 465,
+    user: process.env.SMTP_USER || '',
+    passEnc: '',
+    fromName: siteConfig.name,
+    fromEmail: process.env.SMTP_USER || siteConfig.contact.email,
+    adminEmail: process.env.CONTACT_NOTIFICATION_EMAIL || siteConfig.contact.email,
+    notify: {
+      membershipReceived: true, // applicant: "we received your application"
+      membershipApproved: true, // applicant: "welcome to the club"
+      membershipRejected: false, // applicant: "your application was not approved"
+      membershipAdmin: true, // admin inbox: new application
+      contactAutoReply: true, // sender: "we got your message"
+      contactAdmin: true, // admin inbox: new contact message
+      accountReceived: true, // alumni / faculty sign-up: "your account is waiting for approval"
+      accountApproved: true, // alumni / faculty: "your account is approved, you can sign in"
+      accountAdmin: true, // admin inbox: new account waiting for approval
+    },
+  },
 };
 
+// Settings only admins may read (the email settings contain the mail server login)
+export const PRIVATE_KEYS = ['email'];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NOTIFY_KEYS = Object.keys(DEFAULTS.email.notify);
+
 const KEYS = Object.keys(DEFAULTS);
+
+// Short in-memory cache for the site settings read by every page (app/layout.jsx)
+const CACHE_MS = 60 * 1000;
+const cache = new Map();
+
+export async function getCachedSetting(key) {
+  const hit = cache.get(key);
+  if (hit && hit.expires > Date.now()) return hit.value;
+  const value = await getSetting(key);
+  cache.set(key, { value, expires: Date.now() + CACHE_MS });
+  return value;
+}
 
 export async function getSetting(key) {
   if (!KEYS.includes(key)) throw new HttpError(404, 'Unknown setting.');
   await connectDB();
   const doc = await Setting.findOne({ key }).lean();
-  return toPlain({ ...DEFAULTS[key], ...(doc?.value || {}) });
+  const merged = { ...DEFAULTS[key], ...(doc?.value || {}) };
+  if (key === 'email') merged.notify = { ...DEFAULTS.email.notify, ...(doc?.value?.notify || {}) };
+  return toPlain(merged);
 }
 
 const rows = (value, max, shape) =>
@@ -72,6 +117,29 @@ const rows = (value, max, shape) =>
     .filter((row) => Object.values(row).some(Boolean));
 
 const CLEANERS = {
+  email: (input, current) => {
+    const port = Number(input.port);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) throw new HttpError(400, 'Port must be a number between 1 and 65535.');
+    const fromEmail = str(input.fromEmail, 160).toLowerCase();
+    const adminEmail = str(input.adminEmail, 160).toLowerCase();
+    if (fromEmail && !EMAIL_RE.test(fromEmail)) throw new HttpError(400, 'Enter a valid "From" email address.');
+    if (adminEmail && !EMAIL_RE.test(adminEmail)) throw new HttpError(400, 'Enter a valid admin notification email.');
+    // New password → encrypt; empty → keep the saved one; clearPassword → remove it
+    const pass = typeof input.pass === 'string' ? input.pass : '';
+    const passEnc = input.clearPassword ? '' : pass ? encryptSecret(pass) : current.passEnc || '';
+    return {
+      enabled: input.enabled === true || input.enabled === 'true',
+      host: str(input.host, 200),
+      port,
+      secure: input.secure === true || input.secure === 'true',
+      user: str(input.user, 200),
+      passEnc,
+      fromName: str(input.fromName, 120),
+      fromEmail,
+      adminEmail,
+      notify: Object.fromEntries(NOTIFY_KEYS.map((k) => [k, Boolean(input.notify?.[k])])),
+    };
+  },
   site: (input) => {
     const timezone = str(input.timezone, 60);
     if (!isValidTimeZone(timezone)) throw new HttpError(400, 'Choose a valid timezone.');
@@ -112,7 +180,9 @@ const CLEANERS = {
 
 export async function updateSetting(key, input = {}, { userId } = {}) {
   if (!KEYS.includes(key)) throw new HttpError(404, 'Unknown setting.');
-  const value = CLEANERS[key](input);
+  const current = key === 'email' ? await getSetting(key) : {};
+  const value = CLEANERS[key](input, current);
   await Setting.updateOne({ key }, { $set: { value, updatedBy: userId } }, { upsert: true });
+  cache.delete(key);
   return getSetting(key);
 }

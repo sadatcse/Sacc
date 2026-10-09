@@ -4,6 +4,7 @@ import Executive, { PERSON_KINDS, SHIFTS } from '@/models/Executive';
 import CommitteePosition, { POSITION_TYPES } from '@/models/CommitteePosition';
 import { HttpError } from '@/server/http';
 import { assertId, clean, makeSlug, notFound, str, toPlain } from '@/server/validate';
+import { alumniIdsForExecutives } from '@/server/services/alumni-request.service';
 
 const PERSON_FIELDS = {
   name: 'text', photo: 'url', studentId: 'text', batch: 'text', department: 'text', designation: 'text',
@@ -84,8 +85,14 @@ export async function listPeople() {
     CommitteePosition.aggregate([{ $group: { _id: '$executive', count: { $sum: 1 }, years: { $addToSet: '$year' } } }]),
   ]);
   const byId = new Map(counts.map((c) => [String(c._id), c]));
+  const alumni = await alumniIdsForExecutives(people); // { executiveId: alumni slug } — already alumni
   return toPlain(
-    people.map((p) => ({ ...p, positionCount: byId.get(String(p._id))?.count || 0, years: (byId.get(String(p._id))?.years || []).sort((a, b) => b - a) }))
+    people.map((p) => ({
+      ...p,
+      positionCount: byId.get(String(p._id))?.count || 0,
+      years: (byId.get(String(p._id))?.years || []).sort((a, b) => b - a),
+      alumni: alumni[String(p._id)] || '',
+    }))
   );
 }
 

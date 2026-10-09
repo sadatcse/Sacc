@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { FaUsers, FaUserShield, FaUserGraduate, FaUserTie, FaPlus, FaCog } from 'react-icons/fa';
+import { useSearchParams } from 'next/navigation';
+import { FaUsers, FaUserShield, FaUserGraduate, FaUserTie, FaPlus, FaCog, FaCheck, FaHourglassHalf } from 'react-icons/fa';
 import useApi from '@/hooks/useApi';
 import useAuth from '@/hooks/useAuth';
 import usePagination from '@/hooks/usePagination';
@@ -20,7 +21,8 @@ import Alert from '@/components/ui/Alert';
 
 const ROLE_COLORS = { admin: 'red', student: 'blue', alumni: 'amber' };
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }));
-const STATUS_OPTIONS = [{ value: 'active', label: 'Active' }, { value: 'suspended', label: 'Suspended' }];
+const STATUS_OPTIONS = [{ value: 'active', label: 'Active' }, { value: 'pending', label: 'Waiting for approval' }, { value: 'suspended', label: 'Suspended' }];
+const STATUS_COLORS = { active: 'green', pending: 'amber', suspended: 'gray' };
 
 const fields = (isNew) => [
   { name: 'name', label: 'Full name', required: true },
@@ -44,7 +46,9 @@ export default function UsersManager() {
   const { data: users, setData: setUsers, loading, error } = useApi('/users', { initialData: [], select: (res) => res.data || [] });
   const [search, setSearch] = useState('');
   const [role, setRole] = useState('all');
-  const [status, setStatus] = useState('all');
+  const [status, setStatus] = useState(useSearchParams().get('status') || 'all');
+  const [notice, setNotice] = useState('');
+  const [approving, setApproving] = useState(null);
   const [editing, setEditing] = useState(null); // user object, {} for new, null closed
 
   const filtered = useMemo(() => {
@@ -72,6 +76,22 @@ export default function UsersManager() {
     setEditing(null);
   };
 
+  // Pending → active. The server emails the person that they can sign in now.
+  const approve = async (u) => {
+    setApproving(u._id);
+    setNotice('');
+    try {
+      const res = await apiSecure.patch(`/users/${u._id}`, { status: 'active' });
+      setUsers((list) => list.map((x) => (x._id === u._id ? res.data.data.user : x)));
+      setNotice(`${u.name}: ${res.data.message}`);
+    } catch (err) {
+      setNotice(err?.response?.data?.message || 'Could not approve the account.');
+    } finally {
+      setApproving(null);
+    }
+  };
+  const pendingCount = users.filter((u) => u.status === 'pending').length;
+
   const remove = async () => {
     await apiSecure.delete(`/users/${editing._id}`);
     setUsers((list) => list.filter((u) => u._id !== editing._id));
@@ -86,11 +106,41 @@ export default function UsersManager() {
         <div>
           <p className="font-medium text-ink">{u.name}{u._id === me?._id && <span className="ml-2 text-xs text-faint">(you)</span>}</p>
           <p className="text-xs text-subtle">{u.email}</p>
+          {u.signup && (
+            <p className="mt-1 text-xs text-muted">
+              {[u.signup.studentId && `ID ${u.signup.studentId}`, u.signup.batch, u.signup.designation, u.signup.department].filter(Boolean).join(' · ')}
+            </p>
+          )}
+          <p className="mt-1 flex gap-3 text-xs">
+            <a href={`/dashboard/login-history?search=${encodeURIComponent(u.email)}`} onClick={(e) => e.stopPropagation()} className="text-primary-600 hover:underline dark:text-primary-400">Logins</a>
+            <a href={`/dashboard/activity?user=${u._id}`} onClick={(e) => e.stopPropagation()} className="text-primary-600 hover:underline dark:text-primary-400">Activity</a>
+          </p>
         </div>
       ),
     },
     { key: 'role', header: 'Role', render: (u) => <Badge color={ROLE_COLORS[u.role]}>{ROLE_LABELS[u.role] || u.role}</Badge> },
-    { key: 'status', header: 'Status', render: (u) => <Badge color={u.status === 'active' ? 'green' : 'gray'}>{u.status}</Badge> },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (u) =>
+        u.status === 'pending' ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge color="amber">waiting</Badge>
+            <Button
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                approve(u);
+              }}
+              disabled={approving === u._id}
+            >
+              <FaCheck /> {approving === u._id ? 'Approving…' : 'Approve'}
+            </Button>
+          </div>
+        ) : (
+          <Badge color={STATUS_COLORS[u.status] || 'gray'}>{u.status}</Badge>
+        ),
+    },
     { key: 'createdAt', header: 'Joined', render: (u) => formatDate(u.createdAt), className: 'whitespace-nowrap' },
     { key: 'lastLoginAt', header: 'Last sign-in', render: (u) => formatDate(u.lastLoginAt, true), className: 'whitespace-nowrap' },
   ];
@@ -116,6 +166,19 @@ export default function UsersManager() {
       </StatGrid>
 
       <Alert type="error" className="mb-4">{error}</Alert>
+      <Alert type="success" className="mb-4">{notice}</Alert>
+      {pendingCount > 0 && status !== 'pending' && (
+        <button
+          type="button"
+          onClick={() => setStatus('pending')}
+          className="mb-4 flex w-full items-center gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-left text-sm text-amber-800 dark:text-amber-200"
+        >
+          <FaHourglassHalf aria-hidden />
+          <span>
+            <b>{pendingCount} account{pendingCount > 1 ? 's' : ''} waiting for approval</b> — alumni and faculty sign-ups, plus club members (approving their membership in Membership activates their login too).
+          </span>
+        </button>
+      )}
 
       <Card className="p-0">
         <FilterBar

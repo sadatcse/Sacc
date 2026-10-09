@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import Skeleton from '@/components/ui/Skeleton';
 
 const TONES = {
   blue: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
@@ -14,7 +15,7 @@ export default function StatCard({ label, value, icon: Icon, tone = 'blue', hint
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs text-subtle sm:text-sm">{label}</p>
-          <p className="mt-1 text-xl font-bold text-ink sm:text-2xl">{loading ? '…' : value ?? 0}</p>
+          {loading ? <Skeleton className="mt-2 h-7 w-14" /> : <p className="mt-1 text-xl font-bold text-ink sm:text-2xl">{value ?? 0}</p>}
           {hint && <p className="mt-1 text-xs text-faint">{hint}</p>}
         </div>
         {Icon && (

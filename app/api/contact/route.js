@@ -3,7 +3,8 @@ import connectDB from '@/lib/db';
 import ContactMessage, { CONTACT_STATUSES } from '@/models/ContactMessage';
 import { findRecentDuplicate } from '@/lib/dedupe-guard';
 import { requireAdmin, unauthorizedResponse } from '@/lib/auth-guard';
-import { sendContactNotificationEmail } from '@/lib/mailer';
+import { after } from 'next/server';
+import { sendContactAdminNotice, sendContactAutoReply } from '@/server/services/mail.service';
 import { escapeRegex } from '@/lib/utils';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -31,7 +32,8 @@ export async function POST(req) {
     }
 
     await ContactMessage.create(data);
-    await sendContactNotificationEmail(data);
+    // Auto-reply to the sender + notice to the club inbox, sent after the response
+    after(() => Promise.all([sendContactAutoReply(data), sendContactAdminNotice(data)]));
 
     return NextResponse.json({ success: true, message: 'Thanks! Your message has been sent.' }, { status: 201 });
   } catch (error) {

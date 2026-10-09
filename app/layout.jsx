@@ -1,7 +1,7 @@
 import '@/styles/globals.css';
 import AppShell from '@/components/layout/AppShell';
 import { siteConfig } from '@/config/site';
-import { getSetting } from '@/server/services/settings.service';
+import { getCachedSetting } from '@/server/services/settings.service';
 import { DEFAULT_TIME_ZONE, setTimeZone } from '@/lib/timezone';
 
 export const metadata = {
@@ -37,7 +37,7 @@ const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('theme');var d=
 
 async function readTimeZone() {
   try {
-    return (await getSetting('site')).timezone;
+    return (await getCachedSetting('site')).timezone; // cached 60 s — keeps first paint fast
   } catch {
     return DEFAULT_TIME_ZONE; // database unreachable — pages still render
   }

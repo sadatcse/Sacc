@@ -14,8 +14,17 @@ export const list = (value, max = 30) =>
     .filter(Boolean)
     .slice(0, max);
 
+// Profile links: web addresses must be http(s) (no `javascript:` or '#' placeholders), `email` a real address.
+// Anything else is dropped. A bare domain like "github.com/x" gets https:// added.
 export const links = (value = {}) =>
-  Object.fromEntries(LINK_KEYS.map((key) => [key, str(value?.[key], 300)]));
+  Object.fromEntries(
+    LINK_KEYS.map((key) => {
+      let v = str(value?.[key], 300);
+      if (key === 'email') return [key, /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? v.toLowerCase() : ''];
+      if (v && !/^[a-z][a-z\d+.-]*:/i.test(v) && /^[\w-]+(\.[\w-]+)+(\/|$)/.test(v)) v = `https://${v}`;
+      return [key, /^https?:\/\/[^\s]+\.[^\s]+/i.test(v) ? v : ''];
+    })
+  );
 
 // "one per line" text or an array → trimmed items (for entries that may contain commas)
 export const lines = (value, max = 30) =>

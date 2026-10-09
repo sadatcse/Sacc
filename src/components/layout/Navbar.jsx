@@ -1,14 +1,17 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { HiMenu, HiX } from 'react-icons/hi';
-import { FaUserCircle, FaUserPlus } from 'react-icons/fa';
+import { FaSignOutAlt, FaUserCircle, FaUserPlus } from 'react-icons/fa';
 import { mainNav } from '@/config/navigation';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api-client';
+import { isMembersOnlyPath } from '@/lib/redirect';
 import Container from '@/components/ui/Container';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
+import UserMenu, { Avatar, userMenuLinks } from './UserMenu';
 
 const JOIN_HREF = '/join';
 
@@ -24,6 +27,28 @@ export default function Navbar() {
   const open = openOn === pathname;
   const setOpen = (value) => setOpenOn(value ? pathname : null);
   const links = mainNav.filter((l) => l.href !== JOIN_HREF); // "Join Us" is shown as a button
+  const router = useRouter();
+  // Signed-in user (null = visitor, undefined = still checking — show neither button nor avatar yet)
+  const [user, setUser] = useState(undefined);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get('/auth/session', { withCredentials: true })
+      .then((res) => active && setUser(res.data.data || null))
+      .catch(() => active && setUser(null));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const logOut = async () => {
+    setOpen(false);
+    await api.post('/auth/logout', {}, { withCredentials: true }).catch(() => {});
+    setUser(null);
+    if (isMembersOnlyPath(pathname)) router.replace('/');
+    router.refresh();
+  };
 
   // Lock page scroll while the menu is open
   useEffect(() => {
@@ -56,19 +81,21 @@ export default function Navbar() {
 
         <div className="flex items-center gap-2">
           <ThemeToggle className="hidden sm:flex" />
-          {/* Signed-in users are sent on to their dashboard / account by the proxy */}
-          <Link
-            href="/login"
-            className="hidden items-center gap-2 rounded-lg border border-line/15 px-3.5 py-2 text-sm font-semibold text-body transition-colors hover:border-orange-500/60 hover:text-ink lg:inline-flex"
-          >
-            <FaUserCircle aria-hidden /> Sign in
-          </Link>
+          {user === null && (
+            <Link
+              href={`/login?from=${encodeURIComponent(pathname)}`}
+              className="hidden items-center gap-2 rounded-lg border border-line/15 px-3.5 py-2 text-sm font-semibold text-body transition-colors hover:border-orange-500/60 hover:text-ink lg:inline-flex"
+            >
+              <FaUserCircle aria-hidden /> Sign in
+            </Link>
+          )}
           <Link
             href={JOIN_HREF}
             className="hidden items-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-orange-500/20 transition-opacity hover:opacity-90 sm:inline-flex"
           >
             <FaUserPlus aria-hidden /> Join Us
           </Link>
+          {user && <UserMenu user={user} onLogout={logOut} />}
           <button
             type="button"
             className="flex h-10 w-10 items-center justify-center rounded-lg text-body hover:bg-line/5 lg:hidden"
@@ -82,9 +109,9 @@ export default function Navbar() {
         </div>
       </Container>
 
-      {/* Mobile / tablet menu */}
+      {/* Mobile / tablet menu (explicit height: the blurred header is its containing block, so bottom-0 would collapse it) */}
       {open && (
-        <div id="mobile-menu" className="fixed inset-x-0 bottom-0 top-16 z-40 overflow-y-auto bg-canvas lg:hidden">
+        <div id="mobile-menu" className="fixed inset-x-0 top-16 z-40 h-[calc(100dvh-4rem)] overflow-y-auto bg-canvas lg:hidden">
           <Container className="flex flex-col gap-1 py-4">
             <nav className="flex flex-col" aria-label="Mobile">
               {links.map((link) => (
@@ -101,16 +128,37 @@ export default function Navbar() {
                 </Link>
               ))}
             </nav>
-            <div className="mt-4 grid gap-3 border-t border-line/10 pt-5 sm:grid-cols-2">
+            {user && (
+              <div className="mt-4 rounded-xl border border-line/10 bg-surface p-2">
+                <div className="flex items-center gap-3 px-2 py-2">
+                  <Avatar user={user} size={44} />
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-ink">{user.name}</p>
+                    <p className="truncate text-sm text-subtle">{user.email}</p>
+                  </div>
+                </div>
+                {userMenuLinks(user).map(({ label, href, icon: Icon }) => (
+                  <Link key={href} href={href} className="flex items-center gap-3 rounded-lg px-3 py-3 font-medium text-body hover:bg-line/5">
+                    <Icon aria-hidden className="text-muted" /> {label}
+                  </Link>
+                ))}
+                <button type="button" onClick={logOut} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 font-medium text-red-600 hover:bg-red-500/10 dark:text-red-400">
+                  <FaSignOutAlt aria-hidden /> Log out
+                </button>
+              </div>
+            )}
+            <div className={cn('mt-4 grid gap-3 border-t border-line/10 pt-5', user === null && 'sm:grid-cols-2')}>
               <Link
                 href={JOIN_HREF}
                 className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-orange-500 px-4 py-3 font-semibold text-white"
               >
                 <FaUserPlus aria-hidden /> Join the Club
               </Link>
-              <Link href="/login" className="flex items-center justify-center gap-2 rounded-lg border border-line/15 px-4 py-3 font-semibold text-body">
-                <FaUserCircle aria-hidden /> Sign in
-              </Link>
+              {user === null && (
+                <Link href={`/login?from=${encodeURIComponent(pathname)}`} className="flex items-center justify-center gap-2 rounded-lg border border-line/15 px-4 py-3 font-semibold text-body">
+                  <FaUserCircle aria-hidden /> Sign in
+                </Link>
+              )}
             </div>
             <ThemeToggle variant="row" className="mt-3" />
           </Container>

@@ -1,4 +1,4 @@
-import Spinner from '@/components/ui/Spinner';
+import { TableRowsSkeleton } from '@/components/loading/PageSkeletons';
 import EmptyState from '@/components/ui/EmptyState';
 import { cn } from '@/lib/utils';
 
@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
  *   columns = [{ key: 'name', header: 'Name', render?: (row) => node, className?, hideOnMobile? }]
  */
 export default function DataTable({ columns, rows = [], loading, rowKey = '_id', onRowClick, emptyTitle = 'No records found', emptyDescription }) {
-  if (loading) return <Spinner label="Loading…" />;
+  if (loading) return <TableRowsSkeleton rows={6} cols={Math.min(columns.length, 5)} />;
   if (!rows.length) return <EmptyState title={emptyTitle} description={emptyDescription} />;
 
   const cell = (col, row) => (col.render ? col.render(row) : row[col.key]);

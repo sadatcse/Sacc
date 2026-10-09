@@ -1,6 +1,8 @@
 // Admin user management
 import { created, ok, readJson } from '@/server/http';
+import { after } from 'next/server';
 import * as users from '@/server/services/user.service';
+import * as mail from '@/server/services/mail.service';
 
 export async function list({ query }) {
   const data = await users.listUsers({ role: query.get('role'), status: query.get('status'), search: query.get('search') });
@@ -24,7 +26,8 @@ export async function update({ req, params, session }) {
   const body = await readJson(req);
   const user = await users.updateUser(params.id, body, { actorId: session._id });
   const profile = body.profile ? await users.updateProfile(user, body.profile) : await users.getProfile(user);
-  return ok({ user: users.toPublicUser(user), profile }, 'User updated.');
+  if (user.activated) after(() => mail.sendAccountApproved(user));
+  return ok({ user: users.toPublicUser(user), profile }, user.activated ? 'Account approved — we emailed them.' : 'User updated.');
 }
 
 export async function remove({ params, session }) {

@@ -6,6 +6,25 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import { getSession } from '@/lib/auth-guard';
+import { describeChange, recordActivity } from '@/server/services/audit.service';
+
+const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+// Logged elsewhere (sign-in / register in auth.controller) or not user actions
+const NOT_TRACKED = /^\/api\/(auth\/sign-in|auth\/register|visitor\/|settings\/email\/test)/;
+
+// Every successful change by a signed-in user is written to the activity log (Dashboard → User Activity)
+async function trackChange(req, session, response) {
+  const path = new URL(req.url).pathname;
+  if (!session || !MUTATING.has(req.method) || response.status >= 400 || NOT_TRACKED.test(path)) return;
+  let data;
+  try {
+    data = (await response.clone().json())?.data;
+  } catch {
+    /* non-JSON response */
+  }
+  const change = describeChange(req.method, path, data);
+  if (change) await recordActivity(req, { session, ...change });
+}
 
 export class HttpError extends Error {
   constructor(status, message) {
@@ -49,7 +68,9 @@ export function route(handler, { roles, auth = Boolean(roles) } = {}) {
       await connectDB();
       const params = ctx?.params ? await ctx.params : {};
       const query = new URL(req.url).searchParams;
-      return await handler({ req, params, query, session });
+      const response = await handler({ req, params, query, session });
+      await trackChange(req, session, response);
+      return response;
     } catch (error) {
       return toResponse(error);
     }

@@ -1,5 +1,5 @@
 import { TbLayoutDashboard } from 'react-icons/tb';
-import { FaGlobe, FaEnvelope, FaNewspaper, FaUsers, FaUserTie, FaUserGraduate, FaIdCard, FaLock, FaInfoCircle, FaUserPlus, FaCog } from 'react-icons/fa';
+import { FaGlobe, FaEnvelope, FaNewspaper, FaUsers, FaUserTie, FaUserGraduate, FaIdCard, FaLock, FaInfoCircle, FaUserPlus, FaCog, FaSignInAlt, FaHistory } from 'react-icons/fa';
 
 // Public site navigation (Navbar + Footer)
 export const mainNav = [
@@ -12,6 +12,10 @@ export const mainNav = [
   { label: 'Contact', href: '/contact' },
   { label: 'Join Us', href: '/join' },
 ];
+
+// Footer "Explore" column — the main menu without these pages
+const FOOTER_HIDDEN = ['/gallery', '/join'];
+export const footerNav = mainNav.filter((link) => !FOOTER_HIDDEN.includes(link.href));
 
 export const legalNav = [
   { label: 'Terms of Use', href: '/legal/termsofuse' },
@@ -46,6 +50,13 @@ export const dashboardNav = [
     ],
   },
   {
+    title: 'Security',
+    items: [
+      { label: 'Login History', href: '/dashboard/login-history', icon: FaSignInAlt },
+      { label: 'User Activity', href: '/dashboard/activity', icon: FaHistory },
+    ],
+  },
+  {
     title: 'Inbox',
     items: [{ label: 'Contact Messages', href: '/dashboard/contact-messages', icon: FaEnvelope }],
   },
@@ -62,6 +73,7 @@ export const dashboardNav = [
 export const accountNav = [
   { label: 'Profile', href: '/account', icon: FaIdCard },
   { label: 'Password', href: '/account/security', icon: FaLock },
+  { label: 'Become Alumni', href: '/account/alumni', icon: FaUserGraduate, roles: ['student'] }, // students only
 ];
 
 // Routes where the public Navbar/Footer are hidden

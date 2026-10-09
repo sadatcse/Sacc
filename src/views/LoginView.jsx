@@ -4,14 +4,8 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { FaUserPlus } from 'react-icons/fa';
 import useAuth from '@/hooks/useAuth';
+import { safeRedirect } from '@/lib/redirect';
 import AuthCard, { AuthButton, AuthError, AuthInput } from '@/components/auth/AuthCard';
-
-// Only send people back to a page their role can open
-function safeRedirect(from, role, fallback) {
-  if (!from || !from.startsWith('/') || from.startsWith('//')) return fallback;
-  if (from.startsWith('/dashboard') && role !== 'admin') return fallback;
-  return from;
-}
 
 export default function LoginView() {
   const { signIn } = useAuth();
@@ -20,6 +14,8 @@ export default function LoginView() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const from = searchParams?.get('from') || '';
+  const registerHref = from ? `/register?from=${encodeURIComponent(from)}` : '/register';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,7 +24,7 @@ export default function LoginView() {
     try {
       const { user, redirectTo } = await signIn(email, password);
       // Full reload so the proxy sees the new cookie
-      window.location.href = safeRedirect(searchParams?.get('from'), user.role, redirectTo);
+      window.location.assign(safeRedirect(from, user.role, redirectTo));
     } catch (err) {
       setError(err.message);
       setSubmitting(false);
@@ -42,7 +38,7 @@ export default function LoginView() {
       footer={
         <>
           New here?{' '}
-          <Link href="/register" className="font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300">Create an account</Link>
+          <Link href={registerHref} className="font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300">Create an account</Link>
           <Link
             href="/join"
             className="mx-auto mt-4 flex w-fit items-center gap-2 rounded-lg border border-orange-500/40 px-4 py-2 text-sm font-semibold text-orange-600 transition-colors hover:bg-orange-500/10 dark:text-orange-400"
@@ -53,6 +49,11 @@ export default function LoginView() {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {from.startsWith('/alumni/') && (
+          <p className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-sm text-orange-700 dark:text-orange-300">
+            Alumni profiles are for members. Sign in (or create a free account) and we’ll take you straight to the profile.
+          </p>
+        )}
         <AuthError>{error}</AuthError>
         <AuthInput label="Email" name="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <AuthInput label="Password" name="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />

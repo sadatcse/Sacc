@@ -62,10 +62,15 @@ const AlumniProfileSchema = new mongoose.Schema(
     education: { type: [EducationSchema], default: [] },
     links: { type: LinksSchema, default: () => ({}) },
     openToMentor: { type: Boolean, default: false },
-    showEmail: { type: Boolean, default: false }, // show links.email publicly
+    showEmail: { type: Boolean, default: false }, // show links.email to signed-in members
+    phone: { type: String, trim: true, default: '', maxlength: 30 },
+    showPhone: { type: Boolean, default: false }, // show the phone to signed-in members
 
     featured: { type: String, trim: true, default: '', maxlength: 80 }, // club position held, e.g. "President '24"
     approved: { type: Boolean, default: false, index: true },
+    // The alumnus' own choice: true = keep my profile off the website (directory + profile page),
+    // even when an admin has approved it
+    hideProfile: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

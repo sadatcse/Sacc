@@ -3,7 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import {
   FaUser, FaEnvelope, FaPhoneAlt, FaIdCard, FaUniversity, FaUsers, FaSun, FaTshirt, FaTint, FaFacebookF,
-  FaCamera, FaCreditCard, FaPaperPlane, FaCheckCircle, FaCopy, FaCheck, FaExclamationTriangle,
+  FaCamera, FaCreditCard, FaPaperPlane, FaCheckCircle, FaCopy, FaCheck, FaExclamationTriangle, FaLock,
 } from 'react-icons/fa';
 import { api, apiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
@@ -87,10 +87,15 @@ export default function JoinForm({ settings }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    if (form.get('password') !== e.currentTarget.elements.confirmPassword.value) {
+      setError('The passwords do not match.');
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
-      const res = await api.post('/membership', new FormData(e.currentTarget));
+      const res = await api.post('/membership', form);
       setDone(res.data);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
@@ -137,7 +142,7 @@ export default function JoinForm({ settings }) {
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="First Name" icon={FaUser} name="firstName"><TextInput name="firstName" placeholder="Enter your first name" autoComplete="given-name" /></Field>
             <Field label="Last Name" icon={FaUser} name="lastName"><TextInput name="lastName" placeholder="Enter your last name" autoComplete="family-name" /></Field>
-            <Field label="Email" icon={FaEnvelope} name="personalEmail"><TextInput name="personalEmail" type="email" placeholder="you@example.com" autoComplete="email" /></Field>
+            <Field label="Email (you will sign in with it)" icon={FaEnvelope} name="personalEmail"><TextInput name="personalEmail" type="email" placeholder="you@example.com" autoComplete="email" /></Field>
             <Field label="Phone (WhatsApp Number)" icon={FaPhoneAlt} name="phone"><TextInput name="phone" type="tel" placeholder="01XXXXXXXXX" autoComplete="tel" /></Field>
             <Field label="Backup Phone" icon={FaPhoneAlt} name="backupPhone" optional><TextInput name="backupPhone" type="tel" optional placeholder="Enter backup phone number" /></Field>
             <Field label="Blood Group" icon={FaTint} name="bloodGroup"><SelectInput name="bloodGroup" placeholder="Select blood group" options={BLOOD_GROUPS} /></Field>
@@ -171,6 +176,19 @@ export default function JoinForm({ settings }) {
             <Field label="Department" icon={FaUniversity} name="department"><TextInput name="department" defaultValue="Computer Science & Engineering" /></Field>
             <Field label="Batch" icon={FaUsers} name="batch"><TextInput name="batch" placeholder="e.g. CSE 24" /></Field>
             <Field label="Shift" icon={FaSun} name="shift"><SelectInput name="shift" placeholder="Day or Evening" options={SHIFT_OPTIONS} /></Field>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-1 text-sm font-bold uppercase tracking-widest text-orange-600 dark:text-orange-400">Your member account</h2>
+          <p className="mb-4 text-sm text-muted">
+            Choose a password for the website. You can sign in and update your profile once your membership is approved — we will email you.
+            Already have an account? Use the same email and that account’s password.
+          </p>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Password" icon={FaLock} name="password"><TextInput name="password" type="password" minLength={8} autoComplete="new-password" placeholder="At least 8 characters" /></Field>
+            {/* no `name`: the confirmation is checked here and never sent */}
+            <Field label="Confirm password" icon={FaLock} name="confirmPassword"><TextInput id="confirmPassword" type="password" minLength={8} autoComplete="new-password" placeholder="Type it again" /></Field>
           </div>
         </section>
 
@@ -210,7 +228,7 @@ export default function JoinForm({ settings }) {
           <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-orange-600 dark:text-orange-400">Soft skills</h2>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {SOFT_SKILLS.map((skill) => (
-              <label key={skill} className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-line/10 bg-canvas/60 px-3 py-2.5 text-sm text-body transition-colors hover:border-orange-500/50 has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10 has-[:checked]:text-white">
+              <label key={skill} className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-line/10 bg-canvas/60 px-3 py-2.5 text-sm text-body transition-colors hover:border-orange-500/50 has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10 has-[:checked]:text-orange-800 dark:has-[:checked]:text-white">
                 <input type="checkbox" name="softSkills" value={skill} className="h-4 w-4 accent-orange-500" />
                 {skill}
               </label>

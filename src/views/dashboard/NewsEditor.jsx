@@ -12,7 +12,7 @@ import PageTitle from '@/components/dashboard/PageTitle';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
-import Spinner from '@/components/ui/Spinner';
+import { FormSkeleton } from '@/components/loading/PageSkeletons';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 const CATEGORY_OPTIONS = newsCategories.filter((c) => c.key !== UPCOMING).map((c) => ({ value: c.key, label: c.label }));
@@ -96,7 +96,7 @@ export default function NewsEditor({ id }) {
   }, [id, isNew]);
 
   if (loadError) return <Alert type="error">{loadError}</Alert>;
-  if (!values) return <Spinner label="Loading post…" />;
+  if (!values) return <FormSkeleton cards={3} />;
 
   const onChange = (name, value) => setValues((s) => setPath(s, name, value));
 

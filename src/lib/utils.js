@@ -39,3 +39,12 @@ export function slugify(text = '') {
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-');
 }
+
+// "+8801763030636" → "+880 1763-030636", "09614008008" → "09614-008008" (display only)
+export function formatPhone(phone = '') {
+  const digits = String(phone).replace(/[^\d+]/g, '');
+  const bd = digits.match(/^\+?880(1\d{3})(\d{6})$/);
+  if (bd) return `+880 ${bd[1]}-${bd[2]}`;
+  const local = digits.match(/^(0\d{4})(\d{6})$/);
+  return local ? `${local[1]}-${local[2]}` : phone;
+}

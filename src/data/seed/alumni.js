@@ -1,26 +1,27 @@
 // SAMPLE alumni (fictional people) for `npm run seed` — manage real ones in Dashboard → Alumni.
 //
-// Base record: id, name, photo?, batch ('CSE 19'), role (job title), company, links, featured? (club position)
+// Base record: id, name, photo?, batch ('CSE 19'), role (job title), company, featured? (club position)
+// Sample people are fictional, so they get example.com emails only — no social links that could point at real people.
 // `withDetails()` below fills in the rest of the AlumniProfile fields with believable sample values:
 //   studentId, department, degree, shift, graduationYear, industry, location, country, bio, quote,
 //   skills[], achievements[], experience[], education[], openToMentor
 const base = [
-  { id: '1', name: 'Arif Hossain', batch: 'CSE 17', role: 'Software Engineer', company: 'Samsung R&D', links: { linkedin: '#' } },
-  { id: '2', name: 'Ayesha Rahman', batch: 'CSE 18', role: 'Lecturer', company: 'University of South Asia', links: { linkedin: '#' } },
-  { id: '3', name: 'Bashir Ahmed', batch: 'CSE 19', role: 'Full Stack Engineer', company: 'Brain Station 23', links: { linkedin: '#', github: '#' }, featured: "Executive Director '22" },
-  { id: '4', name: 'Fahim Chowdhury', batch: 'CSE 17', role: 'PhD Student', company: 'University of Toronto', links: { linkedin: '#', website: '#' } },
-  { id: '5', name: 'Imran Kabir', batch: 'CSE 20', role: 'DevOps Engineer', company: 'Pathao', links: { linkedin: '#', github: '#' } },
-  { id: '6', name: 'Jannatul Ferdous', batch: 'CSE 19', role: 'Software Engineer (QA)', company: 'TigerIT Bangladesh', links: { linkedin: '#' } },
-  { id: '7', name: 'Kamrul Islam', batch: 'CSE 18', role: 'Graduate Research Assistant', company: 'Kent State University', links: { linkedin: '#' } },
-  { id: '8', name: 'Lamia Akter', batch: 'CSE 20', role: 'BI Analyst', company: 'bKash', links: { linkedin: '#' } },
-  { id: '9', name: 'Mahmudul Hasan', batch: 'CSE 21', role: 'Mobile Application Developer', company: 'ReliSource', links: { linkedin: '#', github: '#' } },
-  { id: '10', name: 'Nabila Sultana', batch: 'CSE 20', role: 'Software Engineer', company: 'Samsung R&D', links: { linkedin: '#' } },
-  { id: '11', name: 'Omar Faruk', batch: 'CSE 16', role: 'Assistant Professor', company: 'University of South Asia', links: { linkedin: '#', website: '#' } },
-  { id: '12', name: 'Priya Das', batch: 'CSE 19', role: 'Machine Learning Engineer', company: 'Brain Station 23', links: { linkedin: '#', github: '#' } },
-  { id: '13', name: 'Rafiq Uddin', batch: 'CSE 21', role: 'Trainee Software Engineer', company: 'Enosis Solutions', links: { linkedin: '#' } },
-  { id: '14', name: 'Sadia Islam', batch: 'CSE 18', role: 'Application Security Engineer', company: 'Startise', links: { linkedin: '#' } },
-  { id: '15', name: 'Tahmid Karim', batch: 'CSE 21', role: 'Software Engineer', company: 'Chaldal', links: { linkedin: '#', github: '#' }, featured: "President '24" },
-  { id: '16', name: 'Zubair Alam', batch: 'CSE 20', role: 'Lecturer', company: 'University of South Asia', links: { linkedin: '#' } },
+  { id: '1', name: 'Arif Hossain', batch: 'CSE 17', role: 'Software Engineer', company: 'Samsung R&D' },
+  { id: '2', name: 'Ayesha Rahman', batch: 'CSE 18', role: 'Lecturer', company: 'University of South Asia' },
+  { id: '3', name: 'Bashir Ahmed', batch: 'CSE 19', role: 'Full Stack Engineer', company: 'Brain Station 23', featured: "Executive Director '22" },
+  { id: '4', name: 'Fahim Chowdhury', batch: 'CSE 17', role: 'PhD Student', company: 'University of Toronto' },
+  { id: '5', name: 'Imran Kabir', batch: 'CSE 20', role: 'DevOps Engineer', company: 'Pathao' },
+  { id: '6', name: 'Jannatul Ferdous', batch: 'CSE 19', role: 'Software Engineer (QA)', company: 'TigerIT Bangladesh' },
+  { id: '7', name: 'Kamrul Islam', batch: 'CSE 18', role: 'Graduate Research Assistant', company: 'Kent State University' },
+  { id: '8', name: 'Lamia Akter', batch: 'CSE 20', role: 'BI Analyst', company: 'bKash' },
+  { id: '9', name: 'Mahmudul Hasan', batch: 'CSE 21', role: 'Mobile Application Developer', company: 'ReliSource' },
+  { id: '10', name: 'Nabila Sultana', batch: 'CSE 20', role: 'Software Engineer', company: 'Samsung R&D' },
+  { id: '11', name: 'Omar Faruk', batch: 'CSE 16', role: 'Assistant Professor', company: 'University of South Asia' },
+  { id: '12', name: 'Priya Das', batch: 'CSE 19', role: 'Machine Learning Engineer', company: 'Brain Station 23' },
+  { id: '13', name: 'Rafiq Uddin', batch: 'CSE 21', role: 'Trainee Software Engineer', company: 'Enosis Solutions' },
+  { id: '14', name: 'Sadia Islam', batch: 'CSE 18', role: 'Application Security Engineer', company: 'Startise' },
+  { id: '15', name: 'Tahmid Karim', batch: 'CSE 21', role: 'Software Engineer', company: 'Chaldal', featured: "President '24" },
+  { id: '16', name: 'Zubair Alam', batch: 'CSE 20', role: 'Lecturer', company: 'University of South Asia' },
 ];
 
 const ABROAD = {
@@ -81,6 +82,8 @@ function withDetails(a, i) {
       ...(/PhD|Research/.test(a.role) ? [{ degree: 'M.Sc. in Computer Science', institution: a.company, start: String(2000 + year + 6), end: '' }] : []),
     ],
     openToMentor: i % 3 !== 1,
+    links: { email: `${a.name.toLowerCase().replace(/[^a-z]+/g, '.')}@example.com` },
+    showEmail: true, // members see it on the card and profile
   };
 }
 

@@ -1,7 +1,9 @@
 // Club membership applications from /join. Public submissions are saved as 'draft';
 // admins approve / reject them in Dashboard → Membership.
 import MembershipApplication from '@/models/MembershipApplication';
-import '@/models/User'; // registers the model for populate('reviewedBy')
+import User, { MIN_PASSWORD_LENGTH } from '@/models/User';
+import StudentProfile from '@/models/StudentProfile';
+import { activateUser, createUser } from '@/server/services/user.service';
 import {
   APPLICATION_STATUSES, BLOOD_GROUPS, MOBILE_PAYMENT_METHODS, PAYMENT_METHODS, PHOTO_MAX_BYTES, SHIFT_OPTIONS, SOFT_SKILLS, TSHIRT_SIZES,
 } from '@/config/membership';
@@ -75,6 +77,40 @@ function cleanApplication(form, settings) {
   return data;
 }
 
+// The member's login. A new applicant chooses a password on the Join form and gets a 'pending' student
+// account that becomes active when the membership is approved. Someone who already has an active
+// account links the application to it by entering that account's password instead.
+async function memberAccount(data, password) {
+  const existing = await User.findOne({ email: data.personalEmail }).select('+password');
+  if (existing?.status === 'active') {
+    if (!(await existing.checkPassword(password))) {
+      throw new HttpError(409, 'An account with this email already exists — enter that account’s password, or use another email.');
+    }
+    return { user: existing, accountCreated: false };
+  }
+  if (password.length < MIN_PASSWORD_LENGTH) throw new HttpError(400, `Choose a password of at least ${MIN_PASSWORD_LENGTH} characters.`);
+  if (existing) {
+    // Only a pending member account whose earlier applications were all rejected can be reused
+    const open = existing.role === 'student' && existing.status === 'pending'
+      ? await MembershipApplication.exists({ user: existing._id, status: { $in: ['draft', 'approved'] } })
+      : true;
+    if (open) {
+      throw new HttpError(409, existing.status === 'pending'
+        ? 'An account with this email is already waiting for approval.'
+        : 'The account with this email is suspended. Please contact the club.');
+    }
+    Object.assign(existing, { name: `${data.firstName} ${data.lastName}`, phone: data.phone, password });
+    await existing.save();
+    await StudentProfile.updateOne({ user: existing._id }, { $set: { studentId: data.studentId, department: data.department, batch: data.batch } }, { upsert: true });
+    return { user: existing, accountCreated: true };
+  }
+  const user = await createUser(
+    { name: `${data.firstName} ${data.lastName}`, email: data.personalEmail, phone: data.phone, password, role: 'student', status: 'pending' },
+    { profile: { studentId: data.studentId, department: data.department, batch: data.batch } }
+  );
+  return { user, accountCreated: true, isNew: true };
+}
+
 // Public: one application per student ID while it is draft or approved
 export async function submitApplication(form, { ip } = {}) {
   const settings = await getSetting('membership');
@@ -87,8 +123,16 @@ export async function submitApplication(form, { ip } = {}) {
       : 'We already have an application for this student ID — it is waiting for review.');
   }
   const photo = await readPhoto(form.get('photo'));
-  const application = await MembershipApplication.create({ ...data, photo, ip, status: 'draft' });
-  return { _id: String(application._id), status: application.status };
+  const account = await memberAccount(data, String(form.get('password') || ''));
+  let application;
+  try {
+    application = await MembershipApplication.create({ ...data, photo, ip, status: 'draft', user: account.user._id, accountCreated: account.accountCreated });
+  } catch (error) {
+    if (account.isNew) await Promise.all([User.deleteOne({ _id: account.user._id }), StudentProfile.deleteOne({ user: account.user._id })]);
+    throw error;
+  }
+  const { photo: _photo, ...saved } = application.toObject();
+  return toPlain(saved);
 }
 
 // ---------- admin ----------
@@ -123,17 +167,30 @@ export async function reviewApplication(id, input = {}, { userId } = {}) {
     else Object.assign($set, { reviewedBy: userId, reviewedAt: new Date() });
   }
   if ('adminNote' in input) $set.adminNote = str(input.adminNote, 1000);
+  const before = await MembershipApplication.findById(id).select('status').lean();
+  if (!before) throw notFound('Application');
   const row = await MembershipApplication.findByIdAndUpdate(id, { $set, ...(Object.keys($unset).length && { $unset }) }, { returnDocument: 'after', runValidators: true })
     .populate('reviewedBy', 'name')
     .lean();
   if (!row) throw notFound('Application');
-  return toPlain(row);
+  // The member's login follows the decision: approved → active; un-approved → back to pending
+  // (only for an account this application created — never for someone's existing account)
+  if (row.user && row.status !== before.status) {
+    if (row.status === 'approved') await activateUser(row.user);
+    else if (before.status === 'approved' && row.accountCreated) await User.updateOne({ _id: row.user, status: 'active' }, { $set: { status: 'pending' } });
+  }
+  return { row: toPlain(row), previousStatus: before.status };
 }
 
 export async function deleteApplication(id) {
   assertId(id, 'application');
   const row = await MembershipApplication.findByIdAndDelete(id);
   if (!row) throw notFound('Application');
+  // A login created by this application that was never approved goes with it
+  if (row.accountCreated && row.user) {
+    const removed = await User.findOneAndDelete({ _id: row.user, status: 'pending', role: 'student' });
+    if (removed) await StudentProfile.deleteOne({ user: removed._id });
+  }
 }
 
 export async function countApplications() {

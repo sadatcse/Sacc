@@ -3,14 +3,13 @@ import { useDeferredValue, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
-import { FaSearch, FaSlidersH, FaChevronDown, FaChevronUp, FaLinkedinIn, FaGithub, FaGlobe, FaTimes, FaUserGraduate, FaMapMarkerAlt, FaHandsHelping } from 'react-icons/fa';
-import { cn } from '@/lib/utils';
+import { FaSearch, FaSlidersH, FaChevronDown, FaChevronUp, FaTimes, FaUserGraduate, FaMapMarkerAlt, FaHandsHelping, FaEnvelope, FaPhoneAlt, FaWhatsapp, FaLock } from 'react-icons/fa';
+import { SOCIAL_LINKS } from '@/config/socialLinks';
+import { cn, formatPhone } from '@/lib/utils';
 
-const LINK_ICONS = [
-  ['linkedin', FaLinkedinIn, 'LinkedIn'],
-  ['github', FaGithub, 'GitHub'],
-  ['website', FaGlobe, 'Website'],
-];
+const SOCIAL = SOCIAL_LINKS.filter((l) => l.key !== 'email');
+// WhatsApp wants the number in international form without '+' (Bangladesh numbers start 01…)
+const whatsappNumber = (phone) => phone.replace(/\D/g, '').replace(/^0(?=1)/, '880');
 
 const SORTS = {
   name: { label: 'Name', compare: (a, b) => a.name.localeCompare(b.name) },
@@ -56,7 +55,45 @@ function Avatar({ person }) {
 }
 
 // Directory card; the whole card opens /alumni/<slug> (social icons stay separate links)
-export function AlumniCard({ person }) {
+// Social icons (everyone) + shared email / phone (signed-in members only)
+function ContactRow({ person, signedIn }) {
+  const social = SOCIAL.filter(({ key }) => person.links?.[key]);
+  const { email, phone } = person.contact || {};
+  const chip =
+    'relative z-10 flex h-8 items-center justify-center gap-1.5 rounded-md border border-line/10 text-sm text-body transition-colors hover:border-orange-500 hover:bg-orange-500 hover:text-white';
+  if (!social.length && !email && !phone && !(person.hasContact && !signedIn)) return null;
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-line/10 pt-3">
+      {social.map(({ key, label, icon: Icon }) => (
+        <a key={key} href={person.links[key]} target="_blank" rel="noopener noreferrer" aria-label={`${person.name} on ${label}`} title={label} className={cn(chip, 'w-8')}>
+          <Icon aria-hidden />
+        </a>
+      ))}
+      {email && (
+        <a href={`mailto:${email}`} title={email} aria-label={`Email ${person.name}`} className={cn(chip, 'w-8')}>
+          <FaEnvelope aria-hidden />
+        </a>
+      )}
+      {phone && (
+        <>
+          <a href={`tel:${phone.replace(/[^\d+]/g, '')}`} title={formatPhone(phone)} aria-label={`Call ${person.name}`} className={cn(chip, 'px-2.5 text-xs font-medium')}>
+            <FaPhoneAlt aria-hidden className="text-[11px]" /> {formatPhone(phone)}
+          </a>
+          <a href={`https://wa.me/${whatsappNumber(phone)}`} target="_blank" rel="noopener noreferrer" title="WhatsApp" aria-label={`WhatsApp ${person.name}`} className={cn(chip, 'w-8')}>
+            <FaWhatsapp aria-hidden />
+          </a>
+        </>
+      )}
+      {person.hasContact && !signedIn && (
+        <Link href="/login?from=%2Falumni" className="relative z-10 inline-flex items-center gap-1.5 text-xs text-subtle hover:text-orange-600 dark:hover:text-orange-400">
+          <FaLock aria-hidden className="text-[10px]" /> Sign in for contact
+        </Link>
+      )}
+    </div>
+  );
+}
+
+export function AlumniCard({ person, signedIn }) {
   return (
     <div className="group relative flex h-full gap-4 rounded-xl border border-line/10 bg-surface/70 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-orange-500/60 hover:shadow-[0_0_30px_-10px_rgba(249,115,22,0.6)]">
       <Avatar person={person} />
@@ -80,20 +117,6 @@ export function AlumniCard({ person }) {
           </p>
         )}
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          {LINK_ICONS.map(([key, Icon, label]) =>
-            person.links?.[key] ? (
-              <a
-                key={key}
-                href={person.links[key]}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`${person.name} on ${label}`}
-                className="relative z-10 text-sm text-muted transition-colors hover:text-orange-600 dark:hover:text-orange-400"
-              >
-                <Icon aria-hidden />
-              </a>
-            ) : null
-          )}
           {person.batch && <span className="rounded border border-line/15 px-1.5 py-0.5 text-[10px] font-semibold text-body">{person.batch}</span>}
           {person.featured && (
             <span className="rounded border border-orange-500/60 bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-orange-600 dark:text-orange-400">
@@ -106,13 +129,14 @@ export function AlumniCard({ person }) {
             </span>
           )}
         </div>
+        <ContactRow person={person} signedIn={signedIn} />
       </div>
     </div>
   );
 }
 
 // Searchable, filterable, sortable alumni grid. Pass the list in so it can come from the DB later.
-export default function AlumniDirectory({ alumni }) {
+export default function AlumniDirectory({ alumni, signedIn = false }) {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState('name');
   const [showFilters, setShowFilters] = useState(false);
@@ -245,7 +269,7 @@ export default function AlumniDirectory({ alumni }) {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.3 }}
               >
-                <AlumniCard person={person} />
+                <AlumniCard person={person} signedIn={signedIn} />
               </motion.li>
             ))}
           </AnimatePresence>

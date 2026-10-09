@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { FaPlus, FaExternalLinkAlt } from 'react-icons/fa';
+import { FaPlus, FaExternalLinkAlt, FaUserGraduate } from 'react-icons/fa';
 import useApi from '@/hooks/useApi';
 import { SOCIAL_LINKS } from '@/config/socialLinks';
 import { apiSecure } from '@/lib/api-client';
@@ -16,6 +16,14 @@ import Alert from '@/components/ui/Alert';
 const KIND_OPTIONS = [{ value: 'student', label: 'Student' }, { value: 'faculty', label: 'Faculty' }];
 const SHIFT_OPTIONS = [{ value: '', label: 'Choose…' }, { value: 'day', label: 'Day' }, { value: 'evening', label: 'Evening' }];
 const SHIFT_LABELS = { day: 'Day', evening: 'Evening' };
+
+// Dashboard → Executives → Convert to Alumni (graduated student executives)
+const ALUMNI_FIELDS = [
+  { name: 'graduationYear', label: 'Graduation year', type: 'number', placeholder: String(new Date().getFullYear()) },
+  { name: 'jobTitle', label: 'Current job title', placeholder: 'Software Engineer' },
+  { name: 'company', label: 'Company / University', full: true },
+  { name: 'hideProfile', label: 'Don’t show this profile on the website (keep it private)', type: 'checkbox', full: true },
+];
 
 // Students need ID, batch, department and shift; faculty need department and designation
 const personFields = (values) => [
@@ -74,6 +82,17 @@ export default function ExecutivesManager() {
   const year = chosenYear ?? years[0] ?? new Date().getFullYear();
   const [editingPerson, setEditingPerson] = useState(null);
   const [editingPosition, setEditingPosition] = useState(null);
+  const [converting, setConverting] = useState(null);
+  const [notice, setNotice] = useState('');
+
+  // Creates (or links) the person's alumni entry from their executive details; the photo, links and
+  // latest club position come along. A linked student login becomes an alumni account too.
+  const convertToAlumni = async (values) => {
+    const res = await apiSecure.post(`/executives/${converting._id}/alumni`, { ...values, graduationYear: Number(values.graduationYear) || undefined });
+    setNotice(`${converting.name}: ${res.data.message}`);
+    setConverting(null);
+    await people.reload();
+  };
 
   const committee = positions.data.filter((p) => p.year === year).sort((a, b) => a.order - b.order);
 
@@ -131,6 +150,29 @@ export default function ExecutivesManager() {
     { key: 'department', header: 'Department', render: (p) => p.department || <Missing /> },
     { key: 'shift', header: 'Shift', render: (p) => (p.kind === 'faculty' ? '—' : SHIFT_LABELS[p.shift] || <Missing />) },
     { key: 'years', header: 'Years served', render: (p) => (p.years?.length ? p.years.join(', ') : <span className="text-faint">none</span>) },
+    {
+      key: 'alumni',
+      header: 'Alumni',
+      render: (p) =>
+        p.kind === 'faculty' ? (
+          '—'
+        ) : p.alumni ? (
+          <Link href="/dashboard/alumni" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 text-xs font-medium text-green-600 hover:underline dark:text-green-400">
+            <FaUserGraduate aria-hidden /> Alumni ✓
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setConverting(p);
+            }}
+            className="whitespace-nowrap text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
+          >
+            Convert to Alumni
+          </button>
+        ),
+    },
   ];
 
   return (
@@ -179,6 +221,7 @@ export default function ExecutivesManager() {
         />
       </Card>
 
+      <Alert type="success" className="mb-4">{notice}</Alert>
       <Card className="p-0" title={<span className="block px-5 pt-5">People ({people.data.length})</span>}>
         <DataTable columns={peopleColumns} rows={people.data} loading={people.loading} onRowClick={(p) => setEditingPerson(p)} emptyTitle="No people yet" />
       </Card>
@@ -195,6 +238,19 @@ export default function ExecutivesManager() {
           deleteLabel="Delete person"
           deleteMessage="This also removes every committee position they held."
           onClose={() => setEditingPerson(null)}
+        />
+      )}
+
+      {converting && (
+        <CrudModal
+          key={`alumni-${converting._id}`}
+          open
+          title={`Convert ${converting.name} to Alumni`}
+          fields={ALUMNI_FIELDS}
+          initial={{ graduationYear: '', jobTitle: '', company: '', hideProfile: false }}
+          submitLabel="Create alumni entry"
+          onSubmit={convertToAlumni}
+          onClose={() => setConverting(null)}
         />
       )}
 

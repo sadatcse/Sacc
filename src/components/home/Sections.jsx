@@ -8,7 +8,7 @@ import { getCommittee, getLatestYear } from '@/server/services/executive.service
 import { getGalleryPhotos } from '@/lib/gallery';
 import { getHomeFeed } from '@/server/services/news.service';
 import { newsCategories, UPCOMING } from '@/data/news-categories';
-import { formatCalendarDate } from '@/lib/utils';
+import { formatCalendarDate, formatPhone } from '@/lib/utils';
 import {
   about, whatWeDo, technologies, projects, alumniText, exploreCse,
 } from '@/data/home';
@@ -39,7 +39,7 @@ export function AboutSection() {
         <Reveal x={40} y={0} delay={0.1}>
           <div className="relative">
             <div className="absolute -inset-3 rounded-2xl bg-gradient-to-br from-red-600/40 to-orange-500/10 blur-xl" />
-            <CoverImage src={about.image} alt="Students working together" sizes="(min-width: 1024px) 50vw, 100vw" className="aspect-[16/10] rounded-2xl ring-1 ring-line/10" />
+            <CoverImage src={about.image} alt="South Asia Computer Club members in front of the University of South Asia campus" sizes="(min-width: 1024px) 50vw, 100vw" className="aspect-[16/10] rounded-2xl ring-1 ring-line/10" />
           </div>
         </Reveal>
       </div>
@@ -320,9 +320,9 @@ const SOCIAL_ICONS = { facebook: FaFacebookF, linkedin: FaLinkedinIn, github: Fa
 export function ConnectSection() {
   const { contact, social } = siteConfig;
   const contactRows = [
-    contact.address && { icon: FaMapMarkerAlt, text: contact.address },
+    contact.address && { icon: FaMapMarkerAlt, text: contact.address, href: contact.mapUrl },
     contact.email && { icon: FaEnvelope, text: contact.email, href: `mailto:${contact.email}` },
-    contact.phone && { icon: FaPhoneAlt, text: contact.phone, href: `tel:${contact.phone}` },
+    ...(contact.phones || []).map((phone) => ({ icon: FaPhoneAlt, text: formatPhone(phone), href: `tel:${phone}` })),
   ].filter(Boolean);
 
   return (
@@ -362,7 +362,7 @@ export function ConnectSection() {
                 {contactRows.map(({ icon: Icon, text, href }) => (
                   <li key={text} className="flex items-start gap-3 text-body">
                     <Icon className="mt-0.5 shrink-0 text-orange-600 dark:text-orange-400" aria-hidden />
-                    {href ? <a href={href} className="break-all hover:text-orange-600 dark:hover:text-orange-400">{text}</a> : <span>{text}</span>}
+                    {href ? <a href={href} {...(href.startsWith('http') && { target: '_blank', rel: 'noopener noreferrer' })} className="break-all hover:text-orange-600 dark:hover:text-orange-400">{text}</a> : <span>{text}</span>}
                   </li>
                 ))}
               </ul>

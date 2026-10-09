@@ -1,5 +1,6 @@
-import Spinner from '@/components/ui/Spinner';
+import { HomeSkeleton } from '@/components/loading/PageSkeletons';
 
+// Shown instantly while the page reads MongoDB
 export default function Loading() {
-  return <Spinner className="min-h-[50vh]" label="Loading…" />;
+  return <HomeSkeleton />;
 }

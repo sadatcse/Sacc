@@ -1,11 +1,12 @@
 'use client';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { appOnlyRoutes } from '@/config/navigation';
 import AuthProvider from '@/providers/AuthProvider';
 import { setTimeZone } from '@/lib/timezone';
 import Navbar from './Navbar';
 import Footer from './Footer';
+import NavigationProgress from './NavigationProgress';
 
 function useVisitorLog(enabled) {
   useEffect(() => {
@@ -40,10 +41,25 @@ export default function AppShell({ children, timeZone }) {
 
   useVisitorLog(!isAppRoute);
 
-  if (isAppRoute) return <AuthProvider>{children}</AuthProvider>;
+  // useSearchParams inside the progress bar needs its own Suspense boundary
+  const progress = (
+    <Suspense fallback={null}>
+      <NavigationProgress />
+    </Suspense>
+  );
+
+  if (isAppRoute) {
+    return (
+      <AuthProvider>
+        {progress}
+        {children}
+      </AuthProvider>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
+      {progress}
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />

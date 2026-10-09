@@ -48,8 +48,8 @@ export default function AuthProvider({ children }) {
 
   const register = useCallback(async (payload) => {
     try {
+      // New accounts wait for approval, so registering does not sign in — returns { pending, email, message }
       const res = await api.post('/auth/register', payload, { withCredentials: true });
-      setUser(res.data.data.user);
       return { ...res.data.data, message: res.data.message };
     } catch (err) {
       throw new Error(errorMessage(err, 'Registration failed.'));

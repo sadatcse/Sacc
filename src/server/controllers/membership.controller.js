@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
+import * as mail from '@/server/services/mail.service';
 import { HttpError, created, ok, readJson } from '@/server/http';
 import * as membership from '@/server/services/membership.service';
 import { getClientIp } from '@/lib/visitor';
@@ -17,8 +18,13 @@ export async function submit({ req }) {
   } catch {
     throw new HttpError(400, 'Send the application as multipart form data.');
   }
-  const result = await membership.submitApplication(form, { ip });
-  return created(result, 'Application received! We will review it and contact you soon.');
+  const application = await membership.submitApplication(form, { ip });
+  // Confirmation to the applicant + notice to the club inbox, sent after the response
+  after(() => Promise.all([mail.sendMembershipReceived(application), mail.sendMembershipAdminNotice(application)]));
+  return created(
+    { _id: application._id, status: application.status },
+    'Application received! We have emailed you a confirmation and will review it soon.'
+  );
 }
 
 export async function list({ query }) {
@@ -26,7 +32,11 @@ export async function list({ query }) {
 }
 
 export async function review({ req, params, session }) {
-  return ok(await membership.reviewApplication(params.id, await readJson(req), { userId: session._id }), 'Application updated.');
+  const { row, previousStatus } = await membership.reviewApplication(params.id, await readJson(req), { userId: session._id });
+  // Email the applicant when the decision changes
+  if (row.status !== previousStatus && row.status === 'approved') after(() => mail.sendMembershipApproved(row));
+  if (row.status !== previousStatus && row.status === 'rejected') after(() => mail.sendMembershipRejected(row));
+  return ok(row, 'Application updated.');
 }
 
 export async function remove({ params }) {

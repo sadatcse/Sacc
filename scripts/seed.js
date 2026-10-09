@@ -1,4 +1,4 @@
-// Fills MongoDB with the starter content and the three demo accounts.
+// Fills MongoDB with the starter content, the three demo accounts and two test logins (student + alumni).
 //   npm run seed              → adds anything missing (safe to re-run; never overwrites dashboard edits)
 //   npm run seed -- --force   → also overwrites posts / executives / alumni with the seed files
 //
@@ -47,6 +47,57 @@ const ACCOUNTS = [
     password: env('SEED_ALUMNI_PASSWORD', 'Alumni@12345'),
     Profile: AlumniProfile,
     profile: { batch: 'CSE 19', graduationYear: 2023, jobTitle: 'Software Engineer', company: 'University of South Asia', approved: true },
+  },
+  // Test logins with complete (fictional) profiles — for trying the student and alumni account pages
+  {
+    role: 'student',
+    name: 'Test Student',
+    email: 'test.student@usacc.edu.bd',
+    password: 'TestStudent@123',
+    phone: '01700-000001',
+    Profile: StudentProfile,
+    profile: {
+      studentId: '241000555',
+      department: 'Computer Science & Engineering',
+      batch: 'CSE 24',
+      semester: 'Fall 2026',
+      section: 'B',
+      skills: ['Python', 'React', 'Competitive Programming'],
+      bio: 'Second-year CSE student and club member. Loves problem solving and building small web apps.',
+    },
+  },
+  {
+    role: 'alumni',
+    name: 'Test Alumni',
+    email: 'test.alumni@usacc.edu.bd',
+    password: 'TestAlumni@123',
+    phone: '01700-000002',
+    Profile: AlumniProfile,
+    profile: {
+      studentId: '181000555',
+      department: 'Computer Science & Engineering',
+      degree: 'B.Sc. in Computer Science & Engineering',
+      batch: 'CSE 18',
+      shift: 'day',
+      graduationYear: 2022,
+      jobTitle: 'Backend Engineer',
+      company: 'Example Tech Ltd.',
+      industry: 'Software',
+      location: 'Dhaka',
+      country: 'Bangladesh',
+      bio: 'Former club member, now building backend services. Happy to talk about internships and first jobs.',
+      quote: 'Join the contests and workshops — the people you meet in the club open doors later.',
+      skills: ['Node.js', 'MongoDB', 'System Design'],
+      achievements: ['Club volunteer of the year 2021'],
+      experience: [{ title: 'Backend Engineer', company: 'Example Tech Ltd.', location: 'Dhaka', start: 'Jan 2023', end: '', description: 'APIs and databases for client projects.' }],
+      education: [{ degree: 'B.Sc. in Computer Science & Engineering', institution: 'University of South Asia', start: '2018', end: '2022' }],
+      links: { email: 'test.alumni@example.com' },
+      phone: '01700-000002',
+      showEmail: true,
+      showPhone: true,
+      openToMentor: true,
+      approved: true,
+    },
   },
 ];
 

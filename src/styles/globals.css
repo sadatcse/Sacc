@@ -42,6 +42,11 @@
     html { font-size: 18px; }
   }
 
+  @keyframes nav-progress {
+    from { width: 0; }
+    to { width: 90%; }
+  }
+
   body {
     @apply bg-canvas text-body antialiased;
     font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
