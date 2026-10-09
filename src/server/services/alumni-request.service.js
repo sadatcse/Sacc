@@ -1,4 +1,4 @@
-// Student → alumni. Students ask from Account → Become Alumni; admins approve in Dashboard → Alumni → Requests.
+// Student → alumni. Admins review requests sent earlier (Dashboard → Alumni → Requests; the student form was removed).
 // Admins can also turn a (graduated) student executive into an alumni entry from Dashboard → Executives.
 // Either way one person ends up with one AlumniProfile: an existing entry with the same student ID is linked
 // instead of creating a duplicate.
@@ -11,11 +11,6 @@ import CommitteePosition from '@/models/CommitteePosition';
 import { HttpError } from '@/server/http';
 import { assertId, clean, links as cleanLinks, notFound, str, toPlain } from '@/server/validate';
 import { ensureAlumniSlug } from '@/server/services/alumni.service';
-
-const REQUEST_FIELDS = {
-  studentId: 'text', department: 'text', batch: 'text', shift: 'shift', degree: 'text', graduationYear: 'number',
-  jobTitle: 'text', company: 'text', location: 'text', note: 'longtext', hideProfile: 'boolean',
-};
 
 // ---------- shared: create or link the alumni profile ----------
 
@@ -77,29 +72,7 @@ async function convertAccount(userId, details) {
   return { user, entry };
 }
 
-// ---------- student requests ----------
-
-export async function submitRequest(user, input = {}) {
-  if (user.role !== 'student') throw new HttpError(403, 'Only student accounts can ask to become alumni.');
-  if (await AlumniRequest.exists({ user: user._id, status: 'pending' })) {
-    throw new HttpError(409, 'You already have a request waiting for review.');
-  }
-  const data = clean(input, REQUEST_FIELDS);
-  const missing = [['studentId', 'Student ID'], ['batch', 'Batch'], ['graduationYear', 'Graduation year']]
-    .filter(([key]) => !data[key])
-    .map(([, label]) => label);
-  if (missing.length) throw new HttpError(400, `Please fill in: ${missing.join(', ')}.`);
-  const thisYear = new Date().getFullYear();
-  if (data.graduationYear < 1990 || data.graduationYear > thisYear + 1) throw new HttpError(400, 'Enter a valid graduation year.');
-  const request = await AlumniRequest.create({ ...data, user: user._id, name: user.name, email: user.email });
-  return toPlain(request.toObject());
-}
-
-// The student's latest request (any status), or null
-export async function getMyRequest(userId) {
-  const row = await AlumniRequest.findOne({ user: userId }).sort({ createdAt: -1 }).lean();
-  return row ? toPlain(row) : null;
-}
+// ---------- requests (admin) ----------
 
 export async function listRequests({ status } = {}) {
   const filter = ['pending', 'approved', 'rejected'].includes(status) ? { status } : {};

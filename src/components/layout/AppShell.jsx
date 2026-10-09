@@ -34,7 +34,7 @@ function useVisitorLog(enabled) {
 
 // Public pages get Navbar + Footer; /dashboard and /login get the auth context instead.
 // timeZone comes from the site settings (app/layout.jsx) so dates match the server's rendering.
-export default function AppShell({ children, timeZone }) {
+export default function AppShell({ children, timeZone, contact }) {
   setTimeZone(timeZone);
   const pathname = usePathname() || '/';
   const isAppRoute = appOnlyRoutes.some((route) => pathname.startsWith(route));
@@ -62,7 +62,7 @@ export default function AppShell({ children, timeZone }) {
       {progress}
       <Navbar />
       <main className="flex-1">{children}</main>
-      <Footer />
+      <Footer contact={contact} />
     </div>
   );
 }

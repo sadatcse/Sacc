@@ -8,7 +8,7 @@ import {
 import { api, apiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import {
-  BLOOD_GROUPS, MOBILE_PAYMENT_METHODS, PAYMENT_METHODS, PHOTO_MAX_BYTES, PHOTO_TYPES, SHIFT_OPTIONS, SOFT_SKILLS, TSHIRT_SIZES,
+  BLOOD_GROUPS, GENDER_OPTIONS, MOBILE_PAYMENT_METHODS, PAYMENT_METHODS, PHOTO_MAX_BYTES, PHOTO_TYPES, SHIFT_OPTIONS, SOFT_SKILLS, TSHIRT_SIZES,
 } from '@/config/membership';
 
 const inputClass =
@@ -145,6 +145,7 @@ export default function JoinForm({ settings }) {
             <Field label="Email (you will sign in with it)" icon={FaEnvelope} name="personalEmail"><TextInput name="personalEmail" type="email" placeholder="you@example.com" autoComplete="email" /></Field>
             <Field label="Phone (WhatsApp Number)" icon={FaPhoneAlt} name="phone"><TextInput name="phone" type="tel" placeholder="01XXXXXXXXX" autoComplete="tel" /></Field>
             <Field label="Backup Phone" icon={FaPhoneAlt} name="backupPhone" optional><TextInput name="backupPhone" type="tel" optional placeholder="Enter backup phone number" /></Field>
+            <Field label="Gender" icon={FaUser} name="gender"><SelectInput name="gender" placeholder="Select gender" options={GENDER_OPTIONS} /></Field>
             <Field label="Blood Group" icon={FaTint} name="bloodGroup"><SelectInput name="bloodGroup" placeholder="Select blood group" options={BLOOD_GROUPS} /></Field>
             <Field label="T-Shirt Size" icon={FaTshirt} name="tshirtSize"><SelectInput name="tshirtSize" placeholder="Select size" options={TSHIRT_SIZES} /></Field>
             <Field label="Facebook Profile" icon={FaFacebookF} name="facebook" optional><TextInput name="facebook" type="url" optional placeholder="https://facebook.com/yourprofile" /></Field>

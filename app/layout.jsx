@@ -1,18 +1,19 @@
 import '@/styles/globals.css';
 import AppShell from '@/components/layout/AppShell';
 import { siteConfig } from '@/config/site';
-import { getCachedSetting } from '@/server/services/settings.service';
+import { getCachedSetting, getContactInfo } from '@/server/services/settings.service';
 import { DEFAULT_TIME_ZONE, setTimeZone } from '@/lib/timezone';
 
 export const metadata = {
   metadataBase: new URL(siteConfig.url),
+  // Home page: "University of South Asia Computer Club — Empowering Innovation Through Technology"; other pages: "Page | SACC"
   title: {
-    default: siteConfig.name,
+    default: `${siteConfig.name} — ${siteConfig.slogan}`,
     template: `%s | ${siteConfig.shortName}`,
   },
   description: siteConfig.description,
   openGraph: {
-    title: siteConfig.name,
+    title: `${siteConfig.name} — ${siteConfig.slogan}`,
     description: siteConfig.description,
     url: siteConfig.url,
     siteName: siteConfig.name,
@@ -29,7 +30,7 @@ export const viewport = {
   ],
 };
 
-// Every page reads the site settings (timezone) per request, so changes apply immediately
+// Every page reads the site settings (timezone, contact details for the footer) per request, so changes apply immediately
 export const dynamic = 'force-dynamic';
 
 // Applies the saved theme (or the system preference) before first paint — no light/dark flash
@@ -44,7 +45,7 @@ async function readTimeZone() {
 }
 
 export default async function RootLayout({ children }) {
-  const timeZone = await readTimeZone();
+  const [timeZone, contact] = await Promise.all([readTimeZone(), getContactInfo()]);
   setTimeZone(timeZone);
 
   return (
@@ -53,7 +54,7 @@ export default async function RootLayout({ children }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body suppressHydrationWarning>
-        <AppShell timeZone={timeZone}>{children}</AppShell>
+        <AppShell timeZone={timeZone} contact={contact}>{children}</AppShell>
       </body>
     </html>
   );

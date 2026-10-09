@@ -1,5 +1,5 @@
 import { TbLayoutDashboard } from 'react-icons/tb';
-import { FaGlobe, FaEnvelope, FaNewspaper, FaUsers, FaUserTie, FaUserGraduate, FaIdCard, FaLock, FaInfoCircle, FaUserPlus, FaCog, FaSignInAlt, FaHistory } from 'react-icons/fa';
+import { FaGlobe, FaEnvelope, FaNewspaper, FaUsers, FaUserTie, FaUserGraduate, FaIdCard, FaLock, FaInfoCircle, FaUserPlus, FaCog, FaSignInAlt, FaHistory, FaImages } from 'react-icons/fa';
 
 // Public site navigation (Navbar + Footer)
 export const mainNav = [
@@ -39,6 +39,7 @@ export const dashboardNav = [
       { label: 'News & Events', href: '/dashboard/news', icon: FaNewspaper },
       { label: 'Executives', href: '/dashboard/executives', icon: FaUserTie },
       { label: 'Alumni', href: '/dashboard/alumni', icon: FaUserGraduate },
+      { label: 'Gallery', href: '/dashboard/gallery', icon: FaImages },
       { label: 'About Page', href: '/dashboard/about', icon: FaInfoCircle },
     ],
   },
@@ -73,7 +74,7 @@ export const dashboardNav = [
 export const accountNav = [
   { label: 'Profile', href: '/account', icon: FaIdCard },
   { label: 'Password', href: '/account/security', icon: FaLock },
-  { label: 'Become Alumni', href: '/account/alumni', icon: FaUserGraduate, roles: ['student'] }, // students only
+  { label: 'Club Members', href: '/account/members', icon: FaUsers, roles: ['student'] },
 ];
 
 // Routes where the public Navbar/Footer are hidden

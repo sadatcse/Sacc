@@ -1,4 +1,5 @@
-// Fills MongoDB with the starter content, the three demo accounts and two test logins (student + alumni).
+// Fills MongoDB with the starter content, the three demo accounts, test logins (student, female member, alumni)
+// and 20 sample club members.
 //   npm run seed              → adds anything missing (safe to re-run; never overwrites dashboard edits)
 //   npm run seed -- --force   → also overwrites posts / executives / alumni with the seed files
 //
@@ -14,6 +15,8 @@ import CommitteePosition from '../src/models/CommitteePosition.js';
 import { posts } from '../src/data/seed/news.js';
 import { people, positions } from '../src/data/seed/executives.js';
 import { alumni } from '../src/data/seed/alumni.js';
+import { members } from '../src/data/seed/members.js';
+import MembershipApplication from '../src/models/MembershipApplication.js';
 
 const force = process.argv.includes('--force');
 const env = (key, fallback) => process.env[key] || fallback;
@@ -65,6 +68,16 @@ const ACCOUNTS = [
       skills: ['Python', 'React', 'Competitive Programming'],
       bio: 'Second-year CSE student and club member. Loves problem solving and building small web apps.',
     },
+  },
+  {
+    // Female club member — sign in as her and as Test Student to see the members-list privacy rule
+    role: 'student',
+    name: 'Nusrat Jahan',
+    email: 'test.female@usacc.edu.bd',
+    password: 'TestFemale@123',
+    phone: '01700001101',
+    Profile: StudentProfile,
+    profile: { studentId: '261000501', department: 'Computer Science & Engineering', batch: 'CSE 26', semester: 'Fall 2026' },
   },
   {
     role: 'alumni',
@@ -175,6 +188,19 @@ async function seedExecutives() {
   report('positions', p);
 }
 
+// Sample approved club members (src/data/seed/members.js); two are linked to the test logins
+async function seedMembers() {
+  const t = tally();
+  for (const { login, ...member } of members) {
+    const user = login ? await User.findOne({ email: login }).select('_id') : null;
+    const doc = { ...member, ...(user && { user: user._id }), reviewedAt: new Date() };
+    t[await upsert(MembershipApplication, { studentId: member.studentId }, doc)]++;
+    // keep the login link even when the application already existed
+    if (user) await MembershipApplication.updateOne({ studentId: member.studentId, user: { $exists: false } }, { $set: { user: user._id } });
+  }
+  report('members', t);
+}
+
 async function seedAlumni() {
   const t = tally();
   for (const { id, role, ...entry } of alumni) {
@@ -198,10 +224,11 @@ async function seedAlumni() {
 await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 10000 });
 console.log(`Seeding "${mongoose.connection.db.databaseName}"${force ? ' (force)' : ''}…`);
 // Build indexes (unique slugs/emails) before inserting
-await Promise.all([User, AdminProfile, StudentProfile, AlumniProfile, Post, Executive, CommitteePosition].map((M) => M.init()));
+await Promise.all([User, AdminProfile, StudentProfile, AlumniProfile, Post, Executive, CommitteePosition, MembershipApplication].map((M) => M.init()));
 await seedAccounts();
 await seedPosts();
 await seedExecutives();
 await seedAlumni();
+await seedMembers();
 console.log('Done.');
 await mongoose.disconnect();

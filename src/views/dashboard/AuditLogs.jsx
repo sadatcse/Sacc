@@ -167,7 +167,7 @@ const ACTION_STYLE = {
 };
 const ACTION_OPTIONS = [{ value: '', label: 'All actions' }, ...Object.entries(ACTION_STYLE).map(([value, [, label]]) => ({ value, label }))];
 const ENTITY_OPTIONS = [
-  '', 'News post', 'Executive', 'Committee position', 'Alumni entry', 'Alumni request', 'User', 'Membership application',
+  '', 'News post', 'Gallery photo', 'Executive', 'Committee position', 'Alumni entry', 'Alumni request', 'User', 'Membership application',
   'Contact message', 'Own profile', 'About page', 'Site settings', 'Registration settings', 'Email settings', 'Account', 'Password', 'Session',
 ].map((value) => ({ value, label: value || 'Everything' }));
 

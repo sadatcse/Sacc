@@ -83,6 +83,7 @@ function Lightbox({ photos, index, onClose, onNavigate }) {
           >
             <Image
               src={photo.src}
+              unoptimized={/^https?:/.test(photo.src)} // remote news images skip the optimizer
               alt={photo.caption || `${photo.album} photo ${index + 1}`}
               width={photo.width}
               height={photo.height}
@@ -108,7 +109,7 @@ function Lightbox({ photos, index, onClose, onNavigate }) {
   );
 }
 
-// Masonry photo grid with album filter and lightbox. `photos` come from getGalleryPhotos().
+// Masonry photo grid with album filter and lightbox. `photos` come from getGalleryPhotos() (gallery.service).
 export default function GalleryGrid({ photos }) {
   const [album, setAlbum] = useState(ALL);
   const [openIndex, setOpenIndex] = useState(null);
@@ -126,9 +127,7 @@ export default function GalleryGrid({ photos }) {
       <div className="flex flex-col items-center rounded-2xl border border-dashed border-line/10 py-20 text-center">
         <FaImages className="text-4xl text-faint" aria-hidden />
         <p className="mt-4 font-semibold text-ink">No photos yet</p>
-        <p className="mt-1 text-sm text-subtle">
-          Add images to <code className="rounded bg-line/10 px-1.5 py-0.5 text-orange-700 dark:text-orange-300">public/gallery</code> and they will appear here.
-        </p>
+        <p className="mt-1 text-sm text-subtle">New photos from our events will appear here soon.</p>
       </div>
     );
   }
@@ -176,6 +175,7 @@ export default function GalleryGrid({ photos }) {
           >
             <Image
               src={photo.src}
+              unoptimized={/^https?:/.test(photo.src)} // remote news images skip the optimizer
               alt={photo.caption || `${photo.album} photo ${i + 1}`}
               width={photo.width}
               height={photo.height}

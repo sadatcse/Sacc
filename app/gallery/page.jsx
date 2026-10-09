@@ -1,14 +1,17 @@
 import DarkPageHeader from '@/components/ui/DarkPageHeader';
 import GalleryGrid from '@/components/gallery/GalleryGrid';
-import { getGalleryPhotos } from '@/lib/gallery';
+import { getGalleryPhotos } from '@/server/services/gallery.service';
 
 export const metadata = {
   title: 'Gallery',
   description: 'Moments from our events, workshops, competitions and celebrations.',
 };
 
-export default function Page() {
-  const photos = getGalleryPhotos();
+// Photos are managed in Dashboard → Gallery and read from MongoDB on every request
+export const dynamic = 'force-dynamic';
+
+export default async function Page() {
+  const photos = await getGalleryPhotos();
 
   return (
     <div className="min-h-[70vh] bg-canvas text-body">

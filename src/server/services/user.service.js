@@ -12,6 +12,13 @@ import { ensureAlumniSlug } from '@/server/services/alumni.service';
 const PROFILE_MODELS = { admin: AdminProfile, student: StudentProfile, alumni: AlumniProfile };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Sign-in message for accounts that an admin hasn't approved yet (the login page shows it as a notice)
+const PENDING_MESSAGES = {
+  student: 'Your club membership is not approved yet. You can sign in as soon as an admin approves it — we will email you.',
+  alumni: 'Your alumni membership is not approved yet. You can sign in as soon as an admin approves it — we will email you.',
+  admin: 'Your faculty account is not approved yet. You can sign in as soon as an admin approves it — we will email you.',
+};
+
 export function toPublicUser(user) {
   const { _id, name, email, role, status, phone, lastLoginAt, createdAt } = user;
   return toPlain({ _id, name, email, role, status: status || 'active', phone, lastLoginAt, createdAt });
@@ -61,7 +68,8 @@ export async function updateProfile(user, input = {}) {
 export async function authenticate(email, password) {
   const user = await User.findOne({ email: str(email, 160).toLowerCase() }).select('+password');
   if (!user || !(await user.checkPassword(password))) throw new HttpError(401, 'Incorrect email or password.');
-  if (user.status === 'pending') throw new HttpError(403, 'Your account is waiting for approval. We will email you as soon as an admin approves it.');
+  // Checked after the password, so only the account owner learns the status
+  if (user.status === 'pending') throw new HttpError(403, PENDING_MESSAGES[user.role] || PENDING_MESSAGES.student);
   if (user.status === 'suspended') throw new HttpError(403, 'This account is suspended. Please contact an admin.');
   user.lastLoginAt = new Date();
   await user.save();

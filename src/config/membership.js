@@ -1,6 +1,10 @@
 // Options for the club membership application (/join) — shared by the form, the API and the dashboard.
 export const TSHIRT_SIZES = ['S', 'M', 'L', 'XL', 'XXL', '3XL'];
 export const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+export const GENDER_OPTIONS = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+];
 export const SHIFT_OPTIONS = [
   { value: 'day', label: 'Day' },
   { value: 'evening', label: 'Evening' },

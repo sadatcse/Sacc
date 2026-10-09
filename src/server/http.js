@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import { getSession } from '@/lib/auth-guard';
+import User from '@/models/User';
 import { describeChange, recordActivity } from '@/server/services/audit.service';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -62,10 +63,16 @@ function toResponse(error) {
 export function route(handler, { roles, auth = Boolean(roles) } = {}) {
   return async function routeHandler(req, ctx) {
     try {
-      const session = getSession(req);
+      let session = getSession(req);
+      await connectDB();
+      // The cookie only proves who signed in. Status and role are read fresh, so an account that is
+      // pending again (membership moved back to draft), suspended or demoted loses access right away.
+      if (session) {
+        const user = await User.findById(session._id).select('status role').lean().catch(() => null);
+        session = user?.status === 'active' ? { ...session, role: user.role } : null;
+      }
       if (auth && !session) return fail('Please sign in.', 401);
       if (roles && !roles.includes(session.role)) return fail('You do not have permission to do that.', 403);
-      await connectDB();
       const params = ctx?.params ? await ctx.params : {};
       const query = new URL(req.url).searchParams;
       const response = await handler({ req, params, query, session });

@@ -1,4 +1,5 @@
 // Committee members (Executive) and the roles they held per year (CommitteePosition).
+import { cache } from 'react';
 import connectDB from '@/lib/db';
 import Executive, { PERSON_KINDS, SHIFTS } from '@/models/Executive';
 import CommitteePosition, { POSITION_TYPES } from '@/models/CommitteePosition';
@@ -63,6 +64,21 @@ export async function getCommittee(year) {
     executives: members.filter((m) => m.type === 'executive'),
   };
 }
+
+// Public contact people for /contact and the home page: the newest committee's top student executives
+// (lowest order first — President, Vice President, …). Only these people's phone numbers are made public.
+export const getClubContacts = cache(async (limit = 2) => {
+  await connectDB();
+  const year = await getLatestYear();
+  const rows = await CommitteePosition.find({ year, type: 'executive' })
+    .sort({ order: 1, createdAt: 1 })
+    .limit(limit)
+    .populate({ path: 'executive', select: '+phone name slug photo links' })
+    .lean();
+  return rows
+    .filter((p) => p.executive)
+    .map(({ role, executive: e }) => ({ name: e.name, role, slug: e.slug, photo: e.photo || '', phone: e.phone || '', email: e.links?.email || '', year }));
+});
 
 export async function getPerson(slug) {
   await connectDB();

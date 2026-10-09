@@ -45,7 +45,7 @@ export default async function Page({ params }) {
           <section className="border-t border-line/10 bg-canvas-2">
             <div className="container max-w-7xl 2xl:max-w-screen-2xl py-14">
               <h2 className="text-2xl font-bold text-ink">
-                More from <span className="text-orange-500">USACC</span>
+                More from <span className="text-orange-500">{siteConfig.shortName}</span>
               </h2>
               <span className="mt-3 block h-1 w-16 rounded-full bg-gradient-to-r from-red-600 to-orange-500" />
               <Stagger className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

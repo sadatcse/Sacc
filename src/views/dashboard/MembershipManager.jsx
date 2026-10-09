@@ -5,7 +5,7 @@ import useApi from '@/hooks/useApi';
 import usePagination from '@/hooks/usePagination';
 import { apiSecure, apiError } from '@/lib/api-client';
 import { formatDate } from '@/lib/utils';
-import { APPLICATION_STATUSES, PAYMENT_METHODS, SHIFT_OPTIONS } from '@/config/membership';
+import { APPLICATION_STATUSES, GENDER_OPTIONS, PAYMENT_METHODS, SHIFT_OPTIONS } from '@/config/membership';
 import PageTitle from '@/components/dashboard/PageTitle';
 import StatCard, { StatGrid } from '@/components/dashboard/StatCard';
 import DataTable from '@/components/dashboard/DataTable';
@@ -39,7 +39,7 @@ const SETTINGS_FIELDS = [
 
 const CSV_COLUMNS = [
   ['Submitted', (a) => formatDate(a.createdAt, true)], ['Status', (a) => a.status], ['First name', (a) => a.firstName], ['Last name', (a) => a.lastName],
-  ['Student ID', (a) => a.studentId], ['Department', (a) => a.department], ['Batch', (a) => a.batch], ['Shift', (a) => SHIFT_LABELS[a.shift]],
+  ['Student ID', (a) => a.studentId], ['Department', (a) => a.department], ['Batch', (a) => a.batch], ['Shift', (a) => SHIFT_LABELS[a.shift]], ['Gender', (a) => a.gender],
   ['Email', (a) => a.personalEmail], ['Phone', (a) => a.phone], ['Backup phone', (a) => a.backupPhone],
   ['T-shirt', (a) => a.tshirtSize], ['Blood group', (a) => a.bloodGroup], ['Facebook', (a) => a.facebook], ['Payment', (a) => PAYMENT_LABELS[a.paymentMethod]],
   ['Paid from', (a) => a.paymentFrom], ['Transaction ID', (a) => a.transactionId], ['Amount', (a) => a.amount], ['Soft skills', (a) => a.softSkills.join('; ')],
@@ -66,6 +66,7 @@ function Row({ label, children }) {
 
 function ApplicationDetail({ app, onUpdated, onDeleted, onClose }) {
   const [note, setNote] = useState(app.adminNote || '');
+  const [gender, setGender] = useState(app.gender || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -74,7 +75,7 @@ function ApplicationDetail({ app, onUpdated, onDeleted, onClose }) {
     setBusy(true);
     setError('');
     try {
-      const res = await apiSecure.patch(`/membership/${app._id}`, { ...(status && { status }), adminNote: note });
+      const res = await apiSecure.patch(`/membership/${app._id}`, { ...(status && { status }), adminNote: note, gender });
       onUpdated(res.data.data);
     } catch (err) {
       setError(apiError(err));
@@ -105,7 +106,7 @@ function ApplicationDetail({ app, onUpdated, onDeleted, onClose }) {
         footer={
           <>
             <Button variant="danger" className="mr-auto" onClick={() => setConfirmDelete(true)} disabled={busy}>Delete</Button>
-            <Button variant="secondary" onClick={() => review()} disabled={busy}>Save note</Button>
+            <Button variant="secondary" onClick={() => review()} disabled={busy}>Save note &amp; gender</Button>
             {app.status !== 'draft' && <Button variant="secondary" onClick={() => review('draft')} disabled={busy}>Back to draft</Button>}
             {app.status !== 'rejected' && <Button variant="secondary" onClick={() => review('rejected')} disabled={busy}>Reject</Button>}
             {app.status !== 'approved' && <Button onClick={() => review('approved')} disabled={busy}>Approve</Button>}
@@ -129,6 +130,13 @@ function ApplicationDetail({ app, onUpdated, onDeleted, onClose }) {
               <Row label="Student ID">{app.studentId}</Row>
               <Row label="Department">{app.department}</Row>
               <Row label="Batch / Shift">{[app.batch, SHIFT_LABELS[app.shift]].filter(Boolean).join(' · ')}</Row>
+              <Row label="Gender">
+                <select value={gender} onChange={(e) => setGender(e.target.value)} disabled={busy} className="rounded-md border border-line/15 bg-surface px-2 py-1 text-sm text-ink" aria-label="Gender">
+                  <option value="">Not set</option>
+                  {GENDER_OPTIONS.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
+                </select>
+                {gender !== (app.gender || '') && <span className="ml-2 text-xs text-subtle">press Save below</span>}
+              </Row>
               <Row label="Phone (WhatsApp)">{app.phone}{app.backupPhone && ` · backup ${app.backupPhone}`}</Row>
               <Row label="Email"><a href={`mailto:${app.personalEmail}`} className="text-primary-600 dark:text-primary-400 hover:underline">{app.personalEmail}</a></Row>
               <Row label="Blood / T-shirt">{app.bloodGroup} · {app.tshirtSize}</Row>
@@ -179,6 +187,9 @@ export default function MembershipManager() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [shift, setShift] = useState('all');
+  const [gender, setGender] = useState('all');
+  const [batch, setBatch] = useState('all');
+  const batches = useMemo(() => [...new Set(apps.map((a) => a.batch).filter(Boolean))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true })), [apps]);
   const [selected, setSelected] = useState(null);
   const [editingSettings, setEditingSettings] = useState(false);
 
@@ -188,9 +199,11 @@ export default function MembershipManager() {
       (a) =>
         (status === 'all' || a.status === status) &&
         (shift === 'all' || a.shift === shift) &&
+        (gender === 'all' || (a.gender || '') === (gender === 'unset' ? '' : gender)) &&
+        (batch === 'all' || a.batch === batch) &&
         (!q || [fullName(a), a.studentId, a.batch, a.phone, a.personalEmail, a.transactionId].some((f) => f?.toLowerCase().includes(q)))
     );
-  }, [apps, search, status, shift]);
+  }, [apps, search, status, shift, gender, batch]);
   const { page, setPage, pageCount, pageItems } = usePagination(filtered, 15);
   const count = (s) => apps.filter((a) => a.status === s).length;
 
@@ -272,6 +285,8 @@ export default function MembershipManager() {
           filters={[
             { key: 'status', value: status, onChange: setStatus, options: [{ value: 'all', label: 'All statuses' }, ...APPLICATION_STATUSES.map((x) => ({ value: x.value, label: x.label }))] },
             { key: 'shift', value: shift, onChange: setShift, options: [{ value: 'all', label: 'Day & Evening' }, ...SHIFT_OPTIONS] },
+            { key: 'batch', value: batch, onChange: setBatch, options: [{ value: 'all', label: 'All batches' }, ...batches.map((b) => ({ value: b, label: b }))] },
+            { key: 'gender', value: gender, onChange: setGender, options: [{ value: 'all', label: 'All genders' }, ...GENDER_OPTIONS, { value: 'unset', label: 'Gender not set' }] },
           ]}
         />
         <DataTable columns={columns} rows={pageItems} loading={loading} onRowClick={setSelected} emptyTitle="No applications yet" emptyDescription="Share the /join link to start receiving applications." />

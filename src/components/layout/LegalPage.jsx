@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { FaEnvelope } from 'react-icons/fa';
-import { siteConfig } from '@/config/site';
 import { legalDocs, LEGAL_ORDER } from '@/data/legal';
 import { cn } from '@/lib/utils';
+import { getContactInfo } from '@/server/services/settings.service';
 import DarkPageHeader from '@/components/ui/DarkPageHeader';
 import { Inline } from '@/components/news/RichText';
 
@@ -16,8 +16,16 @@ function Block({ block }) {
 }
 
 // Shared layout for every /legal page. Text lives in src/data/legal.js; `docKey` is the route name.
-export default function LegalPage({ docKey }) {
-  const doc = legalDocs[docKey];
+// Fills the {{email}} / {{address}} placeholders in src/data/legal.js with the current contact details
+function fill(block, contact) {
+  const sub = (text) => text.replaceAll('{{email}}', contact.email).replaceAll('{{address}}', contact.address);
+  return typeof block === 'string' ? sub(block) : { ...block, list: block.list?.map(sub) };
+}
+
+export default async function LegalPage({ docKey }) {
+  const contact = await getContactInfo();
+  const raw = legalDocs[docKey];
+  const doc = { ...raw, sections: raw.sections.map((s) => ({ ...s, body: s.body.map((b) => fill(b, contact)) })) };
 
   return (
     <div className="bg-canvas">
@@ -79,10 +87,10 @@ export default function LegalPage({ docKey }) {
               <p className="text-sm text-muted">We usually reply within a few working days.</p>
             </div>
             <a
-              href={`mailto:${siteConfig.contact.email}`}
+              href={`mailto:${contact.email}`}
               className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-orange-500 px-4 py-2.5 text-sm font-semibold text-white"
             >
-              <FaEnvelope aria-hidden /> {siteConfig.contact.email}
+              <FaEnvelope aria-hidden /> {contact.email}
             </a>
           </div>
         </article>

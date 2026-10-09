@@ -4,9 +4,10 @@ import {
 } from 'react-icons/fa';
 import Link from 'next/link';
 import { siteConfig } from '@/config/site';
-import { getCommittee, getLatestYear } from '@/server/services/executive.service';
-import { getGalleryPhotos } from '@/lib/gallery';
+import { getClubContacts, getCommittee, getLatestYear } from '@/server/services/executive.service';
+import { getGalleryPhotos } from '@/server/services/gallery.service';
 import { getHomeFeed } from '@/server/services/news.service';
+import { getContactInfo } from '@/server/services/settings.service';
 import { newsCategories, UPCOMING } from '@/data/news-categories';
 import { formatCalendarDate, formatPhone } from '@/lib/utils';
 import {
@@ -225,22 +226,22 @@ export async function ExecutivesSection() {
   const executives = (await getCommittee(await getLatestYear())).executives.slice(0, HOME_EXECUTIVE_COUNT);
   return (
     <HomeSection className="bg-canvas">
-      <HomeHeading>Executive Committee</HomeHeading>
+      <HomeHeading>Current Executive Committee</HomeHeading>
       <Stagger className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-5">
         {executives.map((person) => (
           <StaggerItem key={person.slug} className="text-center">
             <Link href={`/executives/${person.slug}?year=${person.year}`} className="group flex flex-col items-center">
-            <div className="rounded-full bg-gradient-to-br from-red-600 to-orange-500 p-[3px] shadow-[0_0_25px_-5px_rgba(249,115,22,0.6)]">
-              {person.photo ? (
-                <Image unoptimized src={person.photo} alt={person.name} width={112} height={112} className="h-28 w-28 rounded-full object-cover" />
-              ) : (
-                <span className="flex h-28 w-28 items-center justify-center rounded-full bg-surface text-2xl font-bold text-ink">
-                  {initials(person.name)}
-                </span>
-              )}
-            </div>
-            <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">{person.role}</p>
-            <p className="mt-1 text-ink-2 transition-colors group-hover:text-ink">{person.name}</p>
+              <div className="rounded-full bg-gradient-to-br from-red-600 to-orange-500 p-[3px] shadow-[0_0_25px_-5px_rgba(249,115,22,0.6)]">
+                {person.photo ? (
+                  <Image unoptimized src={person.photo} alt={person.name} width={112} height={112} className="h-28 w-28 rounded-full object-cover" />
+                ) : (
+                  <span className="flex h-28 w-28 items-center justify-center rounded-full bg-surface text-2xl font-bold text-ink">
+                    {initials(person.name)}
+                  </span>
+                )}
+              </div>
+              <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">{person.role}</p>
+              <p className="mt-1 text-ink-2 transition-colors group-hover:text-ink">{person.name}</p>
             </Link>
           </StaggerItem>
         ))}
@@ -259,7 +260,7 @@ function CardTitle({ children }) {
 export async function CommunitySection() {
   // First faculty advisor of the newest committee (the Chief Advisor)
   const year = await getLatestYear();
-  const [advisor] = (await getCommittee(year)).advisors;
+  const [[advisor], photos] = await Promise.all([getCommittee(year).then((c) => c.advisors), getGalleryPhotos()]);
   return (
     <HomeSection className="bg-canvas-2">
       <Stagger className="grid gap-5 lg:grid-cols-3">
@@ -303,7 +304,7 @@ export async function CommunitySection() {
           <Panel className="flex flex-col p-6">
             <CardTitle>Gallery</CardTitle>
             <div className="grid flex-1 grid-cols-3 gap-2">
-              {getGalleryPhotos().slice(0, 6).map((photo) => (
+              {photos.slice(0, 6).map((photo) => (
                 <CoverImage key={photo.src} src={photo.src} alt={photo.caption || 'Club gallery photo'} sizes="(min-width: 1024px) 10vw, 33vw" className="aspect-square rounded-md" />
               ))}
             </div>
@@ -317,8 +318,11 @@ export async function CommunitySection() {
 
 const SOCIAL_ICONS = { facebook: FaFacebookF, linkedin: FaLinkedinIn, github: FaGithub, youtube: FaYoutube };
 
-export function ConnectSection() {
-  const { contact, social } = siteConfig;
+// Contact details from Settings → Contact details; people from the newest committee
+export async function ConnectSection() {
+  const contact = await getContactInfo();
+  const social = contact.social || {};
+  const people = contact.showExecutives ? (await getClubContacts(contact.executiveCount || 2)).filter((p) => p.phone) : [];
   const contactRows = [
     contact.address && { icon: FaMapMarkerAlt, text: contact.address, href: contact.mapUrl },
     contact.email && { icon: FaEnvelope, text: contact.email, href: `mailto:${contact.email}` },
@@ -332,14 +336,27 @@ export function ConnectSection() {
           <Panel className="flex flex-col p-6">
             <CardTitle>Explore CSE</CardTitle>
             <div className="grid flex-1 grid-cols-3 gap-2">
-              {exploreCse.map((item) => (
-                <div key={item.label} className="flex flex-col items-center rounded-lg border border-line/10 p-2 text-center transition-colors hover:border-orange-500/60">
-                  <item.icon className="text-xl text-orange-600 dark:text-orange-400" aria-hidden />
-                  <span className="mt-1 text-[11px] text-body">{item.label}</span>
-                </div>
-              ))}
+              {exploreCse.map((item) => {
+                const tile = 'flex flex-col items-center rounded-lg border border-line/10 p-2 text-center transition-colors hover:border-orange-500/60';
+                const inner = (
+                  <>
+                    <item.icon className="text-xl text-orange-600 dark:text-orange-400" aria-hidden />
+                    <span className="mt-1 text-[11px] text-body">{item.label}</span>
+                  </>
+                );
+                // Each tile opens the department's B.Sc. in CSE page (Settings → Contact details)
+                return contact.departmentUrl ? (
+                  <a key={item.label} href={contact.departmentUrl} target="_blank" rel="noopener noreferrer" className={tile}>{inner}</a>
+                ) : (
+                  <div key={item.label} className={tile}>{inner}</div>
+                );
+              })}
             </div>
-            <HomeButton href="/about" variant="red" className="mt-6 self-center">About the Club</HomeButton>
+            {contact.departmentUrl ? (
+              <HomeButton href={contact.departmentUrl} variant="red" className="mt-6 self-center">Visit CSE Department</HomeButton>
+            ) : (
+              <HomeButton href="/about" variant="red" className="mt-6 self-center">About the Club</HomeButton>
+            )}
           </Panel>
         </StaggerItem>
 
@@ -365,6 +382,15 @@ export function ConnectSection() {
                     {href ? <a href={href} {...(href.startsWith('http') && { target: '_blank', rel: 'noopener noreferrer' })} className="break-all hover:text-orange-600 dark:hover:text-orange-400">{text}</a> : <span>{text}</span>}
                   </li>
                 ))}
+                {people.map((p) => (
+                  <li key={p.slug} className="flex items-start gap-3 text-body">
+                    <FaPhoneAlt className="mt-0.5 shrink-0 text-orange-600 dark:text-orange-400" aria-hidden />
+                    <span>
+                      <a href={`tel:${p.phone.replace(/[^\d+]/g, '')}`} className="hover:text-orange-600 dark:hover:text-orange-400">{formatPhone(p.phone)}</a>
+                      <span className="block text-xs text-muted">{p.name} · {p.role}</span>
+                    </span>
+                  </li>
+                ))}
               </ul>
               <div className="mt-5 flex gap-2">
                 {Object.entries(SOCIAL_ICONS).map(([key, Icon]) => {
@@ -375,7 +401,7 @@ export function ConnectSection() {
                       <Icon aria-hidden />
                     </a>
                   ) : (
-                    <span key={key} className={`${classes} opacity-40`} title={`Add ${key} link in src/config/site.js`}>
+                    <span key={key} className={`${classes} opacity-40`} title={`Add the ${key} link in Dashboard → Settings → Contact details`}>
                       <Icon aria-hidden />
                     </span>
                   );

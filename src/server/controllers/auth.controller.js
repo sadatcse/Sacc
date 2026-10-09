@@ -35,7 +35,7 @@ export async function signIn({ req }) {
   try {
     user = await users.authenticate(email, password);
   } catch (error) {
-    const reason = error.status !== 403 ? 'Wrong email or password' : /approval/.test(error.message) ? 'Waiting for approval' : 'Account suspended';
+    const reason = error.status !== 403 ? 'Wrong email or password' : /not approved yet/.test(error.message) ? 'Waiting for approval' : 'Account suspended';
     await recordLogin(req, { email, success: false, reason });
     throw error;
   }

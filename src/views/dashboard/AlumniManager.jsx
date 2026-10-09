@@ -30,7 +30,7 @@ const FIELDS = [
   { name: 'approved', label: 'Show in the public directory (and the profile page)', type: 'checkbox', full: true },
 ];
 
-// Students asking to become alumni (Account → Become Alumni). Approve = their account becomes alumni.
+// Requests to become alumni sent earlier by students (the student form was removed). Approve = their account becomes alumni.
 function AlumniRequests({ onApproved }) {
   const { data: requests, setData: setRequests, loading } = useApi('/alumni-requests?status=pending', { initialData: [], select: (res) => res.data || [] });
   const [notes, setNotes] = useState({});

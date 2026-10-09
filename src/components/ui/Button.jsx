@@ -6,6 +6,8 @@ const VARIANTS = {
   secondary: 'border border-line/20 bg-surface text-body hover:bg-line/5',
   danger: 'bg-red-600 text-white hover:bg-red-700',
   ghost: 'text-muted hover:bg-line/10',
+  // Club brand gradient (public pages)
+  brand: 'bg-gradient-to-r from-red-600 to-orange-500 text-white shadow-lg shadow-orange-500/20 hover:opacity-90',
 };
 
 const SIZES = {

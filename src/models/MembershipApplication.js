@@ -14,6 +14,8 @@ const MembershipApplicationSchema = new mongoose.Schema(
     department: { type: String, required: true, trim: true, maxlength: 120 },
     batch: { type: String, required: true, trim: true, maxlength: 40 },
     shift: { type: String, enum: ['day', 'evening'], required: true },
+    // Members directory privacy: male members never see female members' contact details
+    gender: { type: String, enum: ['male', 'female', ''], default: '' },
     tshirtSize: { type: String, required: true },
     bloodGroup: { type: String, required: true },
     facebook: { type: String, trim: true, default: '', maxlength: 300 },

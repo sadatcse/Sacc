@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 export const ALUMNI_REQUEST_STATUSES = ['pending', 'approved', 'rejected'];
 
-// A student's request to become alumni (Account → Become Alumni). When an admin approves it
+// A student's request to become alumni (the student form has been removed; older requests remain). When an admin approves it
 // (Dashboard → Alumni → Requests) the account's role changes to 'alumni' and an AlumniProfile is
 // created from these details plus the student profile.
 const AlumniRequestSchema = new mongoose.Schema(

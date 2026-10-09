@@ -5,7 +5,7 @@ import User, { MIN_PASSWORD_LENGTH } from '@/models/User';
 import StudentProfile from '@/models/StudentProfile';
 import { activateUser, createUser } from '@/server/services/user.service';
 import {
-  APPLICATION_STATUSES, BLOOD_GROUPS, MOBILE_PAYMENT_METHODS, PAYMENT_METHODS, PHOTO_MAX_BYTES, SHIFT_OPTIONS, SOFT_SKILLS, TSHIRT_SIZES,
+  APPLICATION_STATUSES, BLOOD_GROUPS, GENDER_OPTIONS, MOBILE_PAYMENT_METHODS, PAYMENT_METHODS, PHOTO_MAX_BYTES, SHIFT_OPTIONS, SOFT_SKILLS, TSHIRT_SIZES,
 } from '@/config/membership';
 import { getSetting } from '@/server/services/settings.service';
 import { HttpError } from '@/server/http';
@@ -45,6 +45,7 @@ function cleanApplication(form, settings) {
     department: get('department', 120),
     batch: get('batch', 40),
     shift: get('shift', 10),
+    gender: get('gender', 10),
     tshirtSize: get('tshirtSize', 5),
     bloodGroup: get('bloodGroup', 5),
     facebook: get('facebook', 300),
@@ -58,7 +59,7 @@ function cleanApplication(form, settings) {
 
   const missing = [
     ['firstName', 'First name'], ['lastName', 'Last name'], ['personalEmail', 'Email'], ['phone', 'Phone'],
-    ['studentId', 'Student ID'], ['department', 'Department'], ['batch', 'Batch'], ['shift', 'Shift'],
+    ['studentId', 'Student ID'], ['department', 'Department'], ['batch', 'Batch'], ['shift', 'Shift'], ['gender', 'Gender'],
     ['tshirtSize', 'T-shirt size'], ['bloodGroup', 'Blood group'], ['paymentMethod', 'Payment method'],
   ].filter(([key]) => !data[key]).map(([, label]) => label);
   const isMobilePayment = MOBILE_PAYMENT_METHODS.includes(data.paymentMethod);
@@ -70,6 +71,7 @@ function cleanApplication(form, settings) {
   if (!PHONE_RE.test(data.phone)) throw new HttpError(400, 'Enter a valid phone number.');
   if (data.backupPhone && !PHONE_RE.test(data.backupPhone)) throw new HttpError(400, 'Enter a valid backup phone number.');
   if (!SHIFT_OPTIONS.some((s) => s.value === data.shift)) throw new HttpError(400, 'Shift must be Day or Evening.');
+  if (!GENDER_OPTIONS.some((g) => g.value === data.gender)) throw new HttpError(400, 'Choose your gender.');
   if (!TSHIRT_SIZES.includes(data.tshirtSize)) throw new HttpError(400, 'Choose a T-shirt size.');
   if (!BLOOD_GROUPS.includes(data.bloodGroup)) throw new HttpError(400, 'Choose a blood group.');
   if (!PAYMENT_METHODS.some((m) => m.value === data.paymentMethod)) throw new HttpError(400, 'Choose a payment method.');
@@ -167,6 +169,11 @@ export async function reviewApplication(id, input = {}, { userId } = {}) {
     else Object.assign($set, { reviewedBy: userId, reviewedAt: new Date() });
   }
   if ('adminNote' in input) $set.adminNote = str(input.adminNote, 1000);
+  // Admins can set / correct the gender (older applications don't have one)
+  if ('gender' in input) {
+    if (!['male', 'female', ''].includes(input.gender)) throw new HttpError(400, 'Invalid gender.');
+    $set.gender = input.gender;
+  }
   const before = await MembershipApplication.findById(id).select('status').lean();
   if (!before) throw notFound('Application');
   const row = await MembershipApplication.findByIdAndUpdate(id, { $set, ...(Object.keys($unset).length && { $unset }) }, { returnDocument: 'after', runValidators: true })

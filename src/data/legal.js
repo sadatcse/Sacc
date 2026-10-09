@@ -4,14 +4,15 @@
 import { siteConfig } from '@/config/site';
 
 const CLUB = siteConfig.name;
-const EMAIL = siteConfig.contact.email;
+// {{email}} / {{address}} are filled in by LegalPage from Settings → Contact details
+const EMAIL = '{{email}}';
 const UPDATED = '8 October 2026';
 
 const contactSection = (extra = '') => ({
   id: 'contact',
   heading: 'Contact us',
   body: [
-    `Questions about this policy? Email **${EMAIL}**, use the [contact form](/contact), or visit the club desk at the Department of Computer Science and Engineering, ${siteConfig.contact.address}.${extra}`,
+    `Questions about this policy? Email **${EMAIL}**, use the [contact form](/contact), or visit the club desk at the Department of Computer Science and Engineering, {{address}}.${extra}`,
   ],
 });
 

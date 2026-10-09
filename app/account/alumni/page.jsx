@@ -1,7 +1,6 @@
-import AlumniRequestForm from '@/components/account/AlumniRequestForm';
+import { redirect } from 'next/navigation';
 
-export const metadata = { title: 'Become Alumni' };
-
+// The "Become Alumni" request was removed — old links go back to the account page
 export default function Page() {
-  return <AlumniRequestForm />;
+  redirect('/account');
 }

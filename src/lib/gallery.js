@@ -1,4 +1,5 @@
-// Gallery photos come straight from the public/gallery folder — drop images in, they appear on /gallery.
+// Reads the public/gallery folder. The gallery itself lives in MongoDB (GalleryPhoto, Dashboard → Gallery);
+// this scanner is used to import folder photos into it (automatically the first time, then from the dashboard).
 //   public/gallery/photo.jpg                  → album "Moments"
 //   public/gallery/Tech Fest 2026/photo.jpg   → album "Tech Fest 2026" (one level of sub-folders = albums)
 // A readable file name ("Freshers' Reception 2026.jpg") becomes the caption; camera / Facebook
@@ -26,7 +27,7 @@ function exifOrientation(buf, tiff) {
 }
 
 // Reads width/height from the file header (JPEG, PNG, WebP, GIF)
-function imageSize(buf) {
+export function imageSize(buf) {
   if (buf.readUInt32BE(0) === 0x89504e47) return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
   if (buf.toString('ascii', 0, 3) === 'GIF') return { width: buf.readUInt16LE(6), height: buf.readUInt16LE(8) };
   if (buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') {
@@ -59,7 +60,12 @@ function imageSize(buf) {
 }
 
 function captionFromName(file) {
-  const base = file.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').replace(/[.\s]+$/, '').trim();
+  const base = file
+    .replace(/\.[^.]+$/, '')
+    .replace(/[_]+/g, ' ')
+    .replace(/\s\d{8,14}$/, '') // trailing timestamp from AI / download tools (…_20261009233210)
+    .replace(/[.\s]+$/, '')
+    .trim();
   const isMachineName = /^[\d\s-]+n?$/i.test(base) || /^(img|dsc|dscn|pxl|photo|image|screenshot|whatsapp image)[\s-]*\d/i.test(base);
   return isMachineName ? null : base;
 }
@@ -77,14 +83,15 @@ function readPhoto(dir, file, album) {
       album: album || DEFAULT_ALBUM,
       caption: captionFromName(file),
       modified: fs.statSync(full).mtimeMs,
+      file: full,
     };
   } catch {
     return null; // unreadable or corrupt image — skip it
   }
 }
 
-// All photos, newest first. Cached per request.
-export const getGalleryPhotos = cache(() => {
+// All photos in the folder, newest first. Cached per request.
+export const scanGalleryFolder = cache(() => {
   if (!fs.existsSync(GALLERY_DIR)) return [];
   const photos = [];
   for (const entry of fs.readdirSync(GALLERY_DIR, { withFileTypes: true })) {
@@ -100,5 +107,5 @@ export const getGalleryPhotos = cache(() => {
   return photos
     .filter(Boolean)
     .sort((a, b) => b.modified - a.modified || a.src.localeCompare(b.src))
-    .map(({ modified, ...photo }, i) => ({ id: i, ...photo }));
+    .map((photo, i) => ({ id: i, ...photo }));
 });

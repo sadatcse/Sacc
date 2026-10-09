@@ -1,4 +1,5 @@
-// Dashboard-editable site settings (Setting model): site (timezone), About page content, membership registration.
+// Dashboard-editable site settings (Setting model): site (timezone), contact details, About page content,
+// membership registration, email.
 // Reads merge the stored value over DEFAULTS, so a missing document still renders a full page.
 import connectDB from '@/lib/db';
 import Setting from '@/models/Setting';
@@ -46,6 +47,18 @@ export const DEFAULTS = {
       { year: '2026', title: 'Intra-Department Programming Contest', text: 'Celebrated our problem solvers with a certificate distribution ceremony.' },
       { year: '2026', title: 'CSE Championship — Season 2', text: 'Organized cricket, football, chess, carrom and chair sitting for the whole department.' },
     ],
+  },
+  // Contact details shown on /contact, the home page, the footer, legal pages and emails (Settings → Contact details)
+  contact: {
+    email: siteConfig.contact.email,
+    phones: siteConfig.contact.phones,
+    address: siteConfig.contact.address,
+    mapUrl: siteConfig.contact.mapUrl,
+    mapEmbed: siteConfig.contact.mapEmbed,
+    departmentUrl: 'https://southasiauni.ac.bd/department/bsc-in-computer-science-and-engineering',
+    social: { ...siteConfig.social },
+    showExecutives: true, // newest committee's top student executives on /contact and the home page
+    executiveCount: 2,
   },
   membership: {
     open: true,
@@ -107,6 +120,7 @@ export async function getSetting(key) {
   const doc = await Setting.findOne({ key }).lean();
   const merged = { ...DEFAULTS[key], ...(doc?.value || {}) };
   if (key === 'email') merged.notify = { ...DEFAULTS.email.notify, ...(doc?.value?.notify || {}) };
+  if (key === 'contact') merged.social = { ...DEFAULTS.contact.social, ...(doc?.value?.social || {}) };
   return toPlain(merged);
 }
 
@@ -116,7 +130,49 @@ const rows = (value, max, shape) =>
     .map((row) => Object.fromEntries(Object.entries(shape).map(([k, len]) => [k, str(row?.[k], len)])))
     .filter((row) => Object.values(row).some(Boolean));
 
+const HTTP_URL = /^https:\/\/[^\s]+$|^http:\/\/[^\s]+$/i;
+// Only Google Maps may be embedded in the iframe on /contact
+const MAP_EMBED = /^https:\/\/(www\.)?google\.[a-z.]+\/maps\/embed\?|^https:\/\/maps\.google\.[a-z.]+\/maps\?/i;
+const PHONE = /^\+?[\d\s()-]{6,20}$/;
+
+function url(value, label, { required = false } = {}) {
+  const v = str(value, 600);
+  if (!v) {
+    if (required) throw new HttpError(400, `${label} is required.`);
+    return '';
+  }
+  if (!HTTP_URL.test(v)) throw new HttpError(400, `${label} must be a full link starting with https://`);
+  return v;
+}
+
 const CLEANERS = {
+  contact: (input) => {
+    const email = str(input.email, 160).toLowerCase();
+    if (!EMAIL_RE.test(email)) throw new HttpError(400, 'Enter a valid contact email.');
+    const phones = (Array.isArray(input.phones) ? input.phones : String(input.phones || '').split(/\r?\n/))
+      .map((p) => str(p, 30))
+      .filter(Boolean)
+      .slice(0, 6);
+    const badPhone = phones.find((p) => !PHONE.test(p));
+    if (badPhone) throw new HttpError(400, `"${badPhone}" is not a valid phone number.`);
+    // Accept either the iframe src or the whole <iframe …> code copied from Google Maps → Share → Embed a map
+    let mapEmbed = str(input.mapEmbed, 2000);
+    const fromIframe = mapEmbed.match(/src=["']([^"']+)["']/i);
+    if (fromIframe) mapEmbed = fromIframe[1].replace(/&amp;/g, '&');
+    if (mapEmbed && !MAP_EMBED.test(mapEmbed)) throw new HttpError(400, 'The map must be a Google Maps embed link (Google Maps → Share → Embed a map).');
+    const count = Number(input.executiveCount);
+    return {
+      email,
+      phones,
+      address: str(input.address, 300),
+      mapUrl: url(input.mapUrl, 'Google Maps link'),
+      mapEmbed,
+      departmentUrl: url(input.departmentUrl, 'CSE department link'),
+      social: Object.fromEntries(Object.keys(DEFAULTS.contact.social).map((k) => [k, url(input.social?.[k], `${k[0].toUpperCase()}${k.slice(1)} link`)])),
+      showExecutives: input.showExecutives === true || input.showExecutives === 'true',
+      executiveCount: Number.isInteger(count) && count >= 1 && count <= 6 ? count : 2,
+    };
+  },
   email: (input, current) => {
     const port = Number(input.port);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new HttpError(400, 'Port must be a number between 1 and 65535.');
@@ -185,4 +241,13 @@ export async function updateSetting(key, input = {}, { userId } = {}) {
   await Setting.updateOne({ key }, { $set: { value, updatedBy: userId } }, { upsert: true });
   cache.delete(key);
   return getSetting(key);
+}
+
+// Contact details for public pages and emails (cached 60 s; falls back to the defaults if the database is down)
+export async function getContactInfo() {
+  try {
+    return await getCachedSetting('contact');
+  } catch {
+    return toPlain(DEFAULTS.contact);
+  }
 }

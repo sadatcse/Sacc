@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { FaClock, FaUserPlus, FaPalette, FaExternalLinkAlt, FaEnvelopeOpenText, FaPaperPlane } from 'react-icons/fa';
+import { FaClock, FaUserPlus, FaPalette, FaExternalLinkAlt, FaEnvelopeOpenText, FaPaperPlane, FaAddressCard } from 'react-icons/fa';
 import useApi from '@/hooks/useApi';
 import useAuth from '@/hooks/useAuth';
 import { apiSecure, apiError } from '@/lib/api-client';
@@ -105,6 +105,70 @@ const PAYMENT_FIELDS = [
   { name: 'nagad', label: 'Nagad number', placeholder: '01XXXXXXXXX' },
   { name: 'rocket', label: 'Rocket number', placeholder: '01XXXXXXXXX' },
 ];
+
+const CONTACT_FIELDS = [
+  { type: 'heading', label: 'How to reach the club' },
+  { name: 'email', label: 'Contact email', type: 'email', placeholder: 'computerclub@southasiauni.ac.bd' },
+  { name: 'phones', label: 'Phone numbers', type: 'lines', placeholder: '09614008008\n+8801763030636', help: 'One number per line, in display order — the first one is the main "Call us" number.' },
+  { name: 'address', label: 'Address', type: 'textarea', rows: 2 },
+  { type: 'heading', label: 'Map' },
+  { name: 'mapUrl', label: 'Google Maps link ("Get directions")', type: 'url', full: true, placeholder: 'https://maps.app.goo.gl/…' },
+  {
+    name: 'mapEmbed',
+    label: 'Map on the Contact page',
+    type: 'textarea',
+    rows: 3,
+    help: 'Google Maps → Share → Embed a map → Copy HTML, and paste it here (the whole <iframe> code or just its link). Leave empty to hide the map.',
+  },
+  { type: 'heading', label: 'Links' },
+  { name: 'departmentUrl', label: 'CSE department page', type: 'url', full: true, help: 'Used by "Visit CSE Department" on the home page, the footer and the Contact page.' },
+  { name: 'social.facebook', label: 'Facebook page', type: 'url', placeholder: 'https://www.facebook.com/…' },
+  { name: 'social.linkedin', label: 'LinkedIn', type: 'url', placeholder: 'https://www.linkedin.com/company/…' },
+  { name: 'social.github', label: 'GitHub', type: 'url', placeholder: 'https://github.com/…' },
+  { name: 'social.youtube', label: 'YouTube', type: 'url', placeholder: 'https://www.youtube.com/@…' },
+  { type: 'heading', label: 'Committee contacts' },
+  { name: 'showExecutives', label: 'Show the current committee’s top student executives (name, role, phone) on the Contact page and the home page', type: 'checkbox', full: true },
+  {
+    name: 'executiveCount',
+    label: 'How many',
+    type: 'select',
+    options: [1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `${n} — in committee order (President, Vice President, …)` })),
+    help: 'Names and phone numbers come from Dashboard → Executives (newest year).',
+  },
+];
+
+// Dashboard → Settings → Contact details: everything visitors use to reach the club
+function ContactSettings() {
+  const contact = useSettingForm('contact');
+  const v = contact.values;
+  const save = () => contact.save({ ...v, executiveCount: Number(v.executiveCount) || 2 });
+
+  return (
+    <Section
+      icon={FaAddressCard}
+      title="Contact details"
+      description="Shown on the Contact page, the home page, the footer, the legal pages and in emails. Changes appear right away."
+      footer={
+        <>
+          <Alert type={contact.status.type || 'info'} className="mr-auto py-1.5">{contact.status.message}</Alert>
+          <Button variant="secondary" href="/contact" target="_blank"><FaExternalLinkAlt /> Contact page</Button>
+          <Button onClick={save} disabled={contact.saving || !contact.dirty}>{contact.saving ? 'Saving…' : 'Save contact details'}</Button>
+        </>
+      }
+    >
+      {contact.loading || !v ? (
+        <FormSkeleton cards={1} />
+      ) : (
+        <EntityForm
+          fields={CONTACT_FIELDS}
+          values={{ ...v, executiveCount: String(v.executiveCount ?? 2) }}
+          onChange={(name, value) => contact.setDraft((d) => setPath(d, name, value))}
+          disabled={contact.saving}
+        />
+      )}
+    </Section>
+  );
+}
 
 const SMTP_FIELDS = [
   { name: 'host', label: 'SMTP host', placeholder: 'smtp.gmail.com' },
@@ -233,6 +297,10 @@ export default function SettingsView() {
       <PageTitle title="Settings" description="Site-wide options for the website and the club." />
 
       <div className="grid gap-6 xl:grid-cols-2">
+        <div className="xl:col-span-2">
+          <ContactSettings />
+        </div>
+
         <Section
           icon={FaClock}
           title="Timezone"

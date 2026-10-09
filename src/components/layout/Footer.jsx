@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { FaFacebookF, FaLinkedinIn, FaGithub, FaYoutube, FaMapMarkerAlt, FaEnvelope, FaPhoneAlt } from 'react-icons/fa';
+import { FaFacebookF, FaLinkedinIn, FaGithub, FaYoutube, FaMapMarkerAlt, FaEnvelope, FaPhoneAlt, FaExternalLinkAlt } from 'react-icons/fa';
 import { siteConfig } from '@/config/site';
 import { footerNav, legalNav } from '@/config/navigation';
 import { api } from '@/lib/api-client';
@@ -20,7 +20,13 @@ function FooterLinks({ title, links }) {
         {links.map((link) => (
           <li key={link.href}>
             {/* py on phones = comfortable tap targets */}
-            <Link href={link.href} className={`block py-1.5 text-muted md:inline md:py-0 ${linkHover}`}>{link.label}</Link>
+            {link.external ? (
+              <a href={link.href} target="_blank" rel="noopener noreferrer" className={`block py-1.5 text-muted md:inline md:py-0 ${linkHover}`}>
+                {link.label} <FaExternalLinkAlt className="inline text-[9px]" aria-hidden />
+              </a>
+            ) : (
+              <Link href={link.href} className={`block py-1.5 text-muted md:inline md:py-0 ${linkHover}`}>{link.label}</Link>
+            )}
           </li>
         ))}
       </ul>
@@ -40,15 +46,17 @@ function ContactRow({ icon: Icon, children }) {
   );
 }
 
-export default function Footer() {
+// `contact` = Settings → Contact details (passed down from app/layout.jsx)
+export default function Footer({ contact: saved }) {
   const [visitors, setVisitors] = useState(null);
 
   useEffect(() => {
     api.get('/visitor/summary').then((res) => setVisitors(res.data?.stats)).catch(() => {});
   }, []);
 
-  const { contact } = siteConfig;
-  const socials = Object.entries(siteConfig.social).filter(([, url]) => url);
+  const contact = saved || siteConfig.contact;
+  const socials = Object.entries(saved?.social || siteConfig.social).filter(([key, url]) => url && SOCIAL_ICONS[key]);
+  const exploreLinks = contact.departmentUrl ? [...footerNav, { label: 'CSE Department', href: contact.departmentUrl, external: true }] : footerNav;
 
   return (
     <footer className="border-t border-line/10 bg-canvas">
@@ -107,7 +115,7 @@ export default function Footer() {
 
         {/* Link columns: side by side on phones, own columns from md */}
         <div className="grid grid-cols-2 gap-6 border-t border-line/10 pt-8 md:col-span-2 md:border-0 md:pt-0">
-          <FooterLinks title="Explore" links={footerNav} />
+          <FooterLinks title="Explore" links={exploreLinks} />
           <FooterLinks title="Legal" links={legalNav} />
         </div>
       </Container>

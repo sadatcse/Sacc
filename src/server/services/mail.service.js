@@ -4,7 +4,7 @@ import nodemailer from 'nodemailer';
 import { siteConfig } from '@/config/site';
 import { escapeHtml, formatPhone } from '@/lib/utils';
 import { decryptSecret } from '@/lib/secret-box';
-import { getSetting } from '@/server/services/settings.service';
+import { getContactInfo, getSetting } from '@/server/services/settings.service';
 import { PAYMENT_METHODS } from '@/config/membership';
 
 // ---------- configuration ----------
@@ -41,10 +41,17 @@ function transportFor(cfg) {
   return cached.transport;
 }
 
-async function send(cfg, { to, subject, html, text, replyTo }) {
+// Address / email / phone lines of the email footer, from Settings → Contact details
+async function contactFooter() {
+  const { address, email, phones = [] } = await getContactInfo();
+  return `${e(address)}<br>${email ? `<a href="mailto:${e(email)}" style="color:#ea580c">${e(email)}</a>` : ''}${phones[0] ? ` · ${e(formatPhone(phones[0]))}` : ''}<br>`;
+}
+
+async function send(cfg, { to, subject, html: template, text, replyTo }) {
   if (!cfg.enabled) return { sent: false, error: 'Email sending is turned off in Settings.' };
   if (!cfg.configured) return { sent: false, error: 'Email is not set up yet (host, username and password are required).' };
   if (!to) return { sent: false, error: 'No recipient.' };
+  const html = template.replace('<!--CONTACT-->', await contactFooter());
   try {
     const info = await transportFor(cfg).sendMail({
       from: `"${(cfg.fromName || siteConfig.name).replace(/"/g, '')}" <${cfg.fromEmail || cfg.user}>`,
@@ -67,7 +74,6 @@ const e = (v) => escapeHtml(String(v ?? ''));
 
 function layout({ heading, intro, body = '', button }) {
   const site = siteConfig.url.replace(/\/$/, '');
-  const { address, email, phones = [] } = siteConfig.contact;
   return `<!doctype html><html><body style="margin:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#27272a">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 12px"><tr><td align="center">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e4e4e7">
@@ -82,8 +88,7 @@ function layout({ heading, intro, body = '', button }) {
         ${button ? `<p style="margin:24px 0 4px"><a href="${button.href}" style="display:inline-block;background:#ea580c;color:#fff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:8px">${e(button.label)}</a></p>` : ''}
       </td></tr>
       <tr><td style="padding:18px 28px;background:#fafafa;border-top:1px solid #e4e4e7;font-size:12px;color:#71717a;line-height:1.6">
-        ${e(siteConfig.name)}<br>${e(address)}<br>
-        ${email ? `<a href="mailto:${e(email)}" style="color:#ea580c">${e(email)}</a>` : ''}${phones[0] ? ` · ${e(formatPhone(phones[0]))}` : ''}<br>
+        ${e(siteConfig.name)}<br><!--CONTACT-->
         <a href="${site}" style="color:#ea580c">${e(site.replace(/^https?:\/\//, ''))}</a>
       </td></tr>
     </table>
@@ -259,26 +264,6 @@ export async function sendAccountAdminNotice(user, profile) {
 }
 
 // ---------- student → alumni requests ----------
-
-export async function sendAlumniRequestAdminNotice(req) {
-  const cfg = await getMailConfig();
-  if (!cfg.notify.accountAdmin || !cfg.adminEmail) return { sent: false, error: 'Turned off' };
-  return send(cfg, {
-    to: cfg.adminEmail,
-    subject: `Alumni request: ${req.name} (${req.studentId})`,
-    html: layout({
-      heading: 'A student asked to become alumni',
-      intro: 'Approving it changes their account to alumni and creates their alumni profile.',
-      body: table([
-        ['Name', req.name], ['Email', req.email], ['Student ID', req.studentId], ['Batch', req.batch], ['Graduated', req.graduationYear],
-        ['Now', [req.jobTitle, req.company].filter(Boolean).join(' @ ')], ['Show on website', req.hideProfile ? 'No (hidden)' : 'Yes'], ['Note', req.note],
-      ]),
-      button: { label: 'Review the request', href: `${site()}/dashboard/alumni` },
-    }),
-    text: toText(`Alumni request: ${req.name} (${req.studentId})`, `${site()}/dashboard/alumni`),
-    replyTo: req.email,
-  });
-}
 
 export async function sendAlumniRequestDecision(req, slug) {
   const cfg = await getMailConfig();

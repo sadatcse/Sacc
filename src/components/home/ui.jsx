@@ -77,7 +77,7 @@ export function DateBadge({ day, month }) {
 export function CoverImage({ src, alt, className, sizes = '(min-width: 1024px) 25vw, 50vw' }) {
   return (
     <div className={cn('group relative overflow-hidden', className)}>
-      <Image src={src} alt={alt} fill sizes={sizes} className="object-cover transition-transform duration-700 group-hover:scale-110" />
+      <Image src={src} alt={alt} fill sizes={sizes} unoptimized={/^https?:/.test(src) && !src.includes('images.unsplash.com')} className="object-cover transition-transform duration-700 group-hover:scale-110" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
     </div>
   );
