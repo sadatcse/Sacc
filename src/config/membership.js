@@ -35,3 +35,19 @@ export const APPLICATION_STATUSES = [
 
 export const PHOTO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 export const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+// A membership lasts this many years from approval; members renew for 1–3 years at a time
+export const MEMBERSHIP_TERM_YEARS = 1;
+export const RENEW_YEARS = [1, 2, 3];
+
+// Money received: the joining fee (from the application), renewals (members) and donations (alumni)
+export const PAYMENT_TYPES = [
+  { value: 'membership', label: 'Membership fee', color: 'blue' },
+  { value: 'renewal', label: 'Renewal', color: 'green' },
+  { value: 'donation', label: 'Donation', color: 'amber' },
+];
+export const PAYMENT_STATUSES = [
+  { value: 'pending', label: 'Waiting for check', color: 'amber' },
+  { value: 'verified', label: 'Received', color: 'green' },
+  { value: 'rejected', label: 'Rejected', color: 'red' },
+];

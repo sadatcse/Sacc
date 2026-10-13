@@ -1,11 +1,13 @@
 'use client';
-import { useMemo, useState } from 'react';
-import { FaUserPlus, FaHourglassHalf, FaCheckCircle, FaTimesCircle, FaCog, FaFileCsv, FaExternalLinkAlt } from 'react-icons/fa';
+import { useEffect, useMemo, useState } from 'react';
+import { FaUserPlus, FaHourglassHalf, FaCheckCircle, FaTimesCircle, FaCog, FaExternalLinkAlt } from 'react-icons/fa';
 import useApi from '@/hooks/useApi';
 import usePagination from '@/hooks/usePagination';
 import { apiSecure, apiError } from '@/lib/api-client';
 import { formatDate } from '@/lib/utils';
-import { APPLICATION_STATUSES, GENDER_OPTIONS, PAYMENT_METHODS, SHIFT_OPTIONS } from '@/config/membership';
+import { APPLICATION_STATUSES, GENDER_OPTIONS, PAYMENT_METHODS, PAYMENT_STATUSES, PAYMENT_TYPES, SHIFT_OPTIONS } from '@/config/membership';
+import { toDateInput } from '@/lib/membership';
+import ExportButtons from '@/components/dashboard/ExportButtons';
 import PageTitle from '@/components/dashboard/PageTitle';
 import StatCard, { StatGrid } from '@/components/dashboard/StatCard';
 import DataTable from '@/components/dashboard/DataTable';
@@ -30,6 +32,7 @@ const SETTINGS_FIELDS = [
   { name: 'open', label: 'Registration is open (the form accepts applications)', type: 'checkbox', full: true },
   { name: 'notice', label: 'Notice shown above the form', full: true, placeholder: 'Registration is open now.' },
   { name: 'fee', label: 'Membership fee (BDT)', type: 'number', required: true },
+  { name: 'renewFee', label: 'Renewal fee per year (BDT)', type: 'number', required: true, help: 'Members renew for 1–3 years from Account → Payments.' },
   { name: 'reference', label: 'Payment reference instruction', placeholder: 'Your name_Student ID' },
   { type: 'heading', label: 'Club receiving numbers (leave empty to hide a method)' },
   { name: 'bkash', label: 'bKash number', placeholder: '01XXXXXXXXX' },
@@ -43,17 +46,42 @@ const CSV_COLUMNS = [
   ['Email', (a) => a.personalEmail], ['Phone', (a) => a.phone], ['Backup phone', (a) => a.backupPhone],
   ['T-shirt', (a) => a.tshirtSize], ['Blood group', (a) => a.bloodGroup], ['Facebook', (a) => a.facebook], ['Payment', (a) => PAYMENT_LABELS[a.paymentMethod]],
   ['Paid from', (a) => a.paymentFrom], ['Transaction ID', (a) => a.transactionId], ['Amount', (a) => a.amount], ['Soft skills', (a) => a.softSkills.join('; ')],
+  ['Joined', (a) => (a.joinedAt ? formatDate(a.joinedAt) : '')], ['Valid until', (a) => (a.expiresAt ? formatDate(a.expiresAt) : '')],
   ['Experience', (a) => a.experience], ['Admin note', (a) => a.adminNote],
 ];
 
-function downloadCsv(rows) {
-  const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const lines = [CSV_COLUMNS.map(([h]) => cell(h)).join(','), ...rows.map((r) => CSV_COLUMNS.map(([, get]) => cell(get(r))).join(','))];
-  const url = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
-  const a = Object.assign(document.createElement('a'), { href: url, download: `membership-applications-${new Date().toISOString().slice(0, 10)}.csv` });
-  a.click();
-  URL.revokeObjectURL(url);
+const PAY_TYPE = Object.fromEntries(PAYMENT_TYPES.map((t) => [t.value, t]));
+const PAY_STATUS = Object.fromEntries(PAYMENT_STATUSES.map((s) => [s.value, s]));
+
+// Every payment linked to this application (joining fee + renewals)
+function PaymentHistory({ appId, refreshKey }) {
+  const [rows, setRows] = useState(null);
+  useEffect(() => {
+    let active = true;
+    apiSecure
+      .get(`/payments?application=${appId}`)
+      .then((res) => active && setRows(res.data.data.rows))
+      .catch(() => active && setRows([]));
+    return () => {
+      active = false;
+    };
+  }, [appId, refreshKey]);
+  if (!rows) return <p className="text-sm text-subtle">Loading payments…</p>;
+  if (!rows.length) return <p className="text-sm text-subtle">No payments recorded yet.</p>;
+  return (
+    <ul className="divide-y divide-line/5 rounded-lg border border-line/10">
+      {rows.map((p) => (
+        <li key={p._id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
+          <Badge color={PAY_TYPE[p.type]?.color}>{PAY_TYPE[p.type]?.label}{p.years ? ` · ${p.years} yr` : ''}</Badge>
+          <span className="font-semibold text-ink">{p.amount} BDT</span>
+          <span className="text-xs text-subtle">{PAYMENT_LABELS[p.method] || p.method}{p.transactionId && ` · ${p.transactionId}`} · {formatDate(p.paidAt)}</span>
+          <Badge color={PAY_STATUS[p.status]?.color} className="ml-auto">{PAY_STATUS[p.status]?.label}</Badge>
+        </li>
+      ))}
+    </ul>
+  );
 }
+
 
 function Row({ label, children }) {
   return (
@@ -67,6 +95,8 @@ function Row({ label, children }) {
 function ApplicationDetail({ app, onUpdated, onDeleted, onClose }) {
   const [note, setNote] = useState(app.adminNote || '');
   const [gender, setGender] = useState(app.gender || '');
+  const [joinedAt, setJoinedAt] = useState(toDateInput(app.joinedAt));
+  const [expiresAt, setExpiresAt] = useState(toDateInput(app.expiresAt));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -75,7 +105,9 @@ function ApplicationDetail({ app, onUpdated, onDeleted, onClose }) {
     setBusy(true);
     setError('');
     try {
-      const res = await apiSecure.patch(`/membership/${app._id}`, { ...(status && { status }), adminNote: note, gender });
+      // The membership dates are only sent while the application stays approved
+      const dates = app.status === 'approved' && !status ? { joinedAt, expiresAt } : {};
+      const res = await apiSecure.patch(`/membership/${app._id}`, { ...(status && { status }), adminNote: note, gender, ...dates });
       onUpdated(res.data.data);
     } catch (err) {
       setError(apiError(err));
@@ -106,7 +138,7 @@ function ApplicationDetail({ app, onUpdated, onDeleted, onClose }) {
         footer={
           <>
             <Button variant="danger" className="mr-auto" onClick={() => setConfirmDelete(true)} disabled={busy}>Delete</Button>
-            <Button variant="secondary" onClick={() => review()} disabled={busy}>Save note &amp; gender</Button>
+            <Button variant="secondary" onClick={() => review()} disabled={busy}>Save changes</Button>
             {app.status !== 'draft' && <Button variant="secondary" onClick={() => review('draft')} disabled={busy}>Back to draft</Button>}
             {app.status !== 'rejected' && <Button variant="secondary" onClick={() => review('rejected')} disabled={busy}>Reject</Button>}
             {app.status !== 'approved' && <Button onClick={() => review('approved')} disabled={busy}>Approve</Button>}
@@ -146,6 +178,21 @@ function ApplicationDetail({ app, onUpdated, onDeleted, onClose }) {
                 {app.transactionId && <span className="block font-mono text-xs">TrxID {app.transactionId} · from {app.paymentFrom}</span>}
               </Row>
               <Row label="Submitted">{formatDate(app.createdAt, true)}</Row>
+              {app.status === 'approved' && (
+                <Row label="Membership">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="text-xs text-subtle">
+                      Joined{' '}
+                      <input type="date" value={joinedAt} onChange={(e) => setJoinedAt(e.target.value)} disabled={busy} className="rounded-md border border-line/15 bg-surface px-2 py-1 text-sm text-ink" />
+                    </label>
+                    <label className="text-xs text-subtle">
+                      Valid until{' '}
+                      <input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} disabled={busy} className="rounded-md border border-line/15 bg-surface px-2 py-1 text-sm text-ink" />
+                    </label>
+                    <Badge color={app.expired ? 'red' : 'green'}>{app.expired ? 'expired' : 'active'}</Badge>
+                  </div>
+                </Row>
+              )}
             </dl>
           </div>
         </div>
@@ -162,6 +209,12 @@ function ApplicationDetail({ app, onUpdated, onDeleted, onClose }) {
           <div className="mt-4">
             <p className="mb-2 text-sm font-medium text-body">Experience</p>
             <p className="whitespace-pre-wrap rounded-lg bg-canvas p-3 text-sm text-body">{app.experience}</p>
+          </div>
+        )}
+        {app.status === 'approved' && (
+          <div className="mt-4">
+            <p className="mb-2 text-sm font-medium text-body">Payments</p>
+            <PaymentHistory appId={app._id} refreshKey={app.expiresAt} />
           </div>
         )}
         <div className="mt-4">
@@ -208,7 +261,7 @@ export default function MembershipManager() {
   const count = (s) => apps.filter((a) => a.status === s).length;
 
   const saveSettings = async (values) => {
-    const res = await apiSecure.put('/settings/membership', { ...values, fee: Number(values.fee) });
+    const res = await apiSecure.put('/settings/membership', { ...values, fee: Number(values.fee), renewFee: Number(values.renewFee) });
     settings.setData(res.data.data);
     setEditingSettings(false);
   };
@@ -255,13 +308,13 @@ export default function MembershipManager() {
             <>
               Applications from the <a href="/join" target="_blank" className="text-primary-600 dark:text-primary-400 hover:underline">Join page <FaExternalLinkAlt className="inline text-[10px]" /></a>.
               New ones arrive as drafts. Registration is{' '}
-              <span className={s.open ? 'font-semibold text-green-700' : 'font-semibold text-red-600'}>{s.open ? 'open' : 'closed'}</span> · fee {s.fee} BDT.
+              <span className={s.open ? 'font-semibold text-green-700' : 'font-semibold text-red-600'}>{s.open ? 'open' : 'closed'}</span> · fee {s.fee} BDT · renewal {s.renewFee} BDT / year.
             </>
           ) : 'Applications from the Join page.'
         }
         actions={
           <>
-            <Button variant="secondary" onClick={() => downloadCsv(filtered)} disabled={!filtered.length}><FaFileCsv /> Export CSV</Button>
+            <ExportButtons filename="membership-applications" title="Membership applications" load={() => ({ columns: CSV_COLUMNS, rows: filtered })} disabled={!filtered.length} />
             <Button variant="secondary" onClick={() => setEditingSettings(true)} disabled={!s}><FaCog /> Registration settings</Button>
             <Button variant="secondary" onClick={reload} disabled={loading}>Refresh</Button>
           </>

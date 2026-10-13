@@ -9,6 +9,7 @@ import StudentProfile from '@/models/StudentProfile';
 import { HttpError } from '@/server/http';
 import { escapeRegex } from '@/lib/utils';
 import { str } from '@/server/validate';
+import { membershipPeriod } from '@/lib/membership';
 
 // The viewer's rights: admins see all; students must be approved members themselves
 export async function viewerFor(session) {
@@ -29,7 +30,7 @@ export async function listMembers({ batch, gender, search } = {}, viewer) {
   }
   const [rows, batches, totals] = await Promise.all([
     MembershipApplication.find(filter)
-      .select('firstName lastName studentId department batch shift gender phone personalEmail facebook bloodGroup user reviewedAt createdAt')
+      .select('firstName lastName studentId department batch shift gender phone personalEmail facebook bloodGroup user status reviewedAt createdAt joinedAt expiresAt')
       .sort({ batch: -1, firstName: 1 })
       .limit(2000)
       .lean(),
@@ -44,6 +45,7 @@ export async function listMembers({ batch, gender, search } = {}, viewer) {
 
   const members = rows.map((m) => {
     const hidden = !seeAll && m.gender === 'female';
+    const period = membershipPeriod(m);
     return {
       _id: String(m._id),
       name: `${m.firstName} ${m.lastName}`.trim(),
@@ -54,7 +56,9 @@ export async function listMembers({ batch, gender, search } = {}, viewer) {
       gender: m.gender || '',
       bloodGroup: m.bloodGroup,
       photo: (m.user && photos.get(String(m.user))) || '',
-      memberSince: m.reviewedAt || m.createdAt,
+      memberSince: period.joinedAt,
+      // Membership period (admins only)
+      ...(viewer.admin && { expiresAt: period.expiresAt, expired: period.expired }),
       contactHidden: hidden,
       phone: hidden ? '' : m.phone,
       email: hidden ? '' : m.personalEmail,

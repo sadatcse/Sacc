@@ -85,7 +85,7 @@ const FAQS = [
 
 export default async function Page() {
   const contact = await getContactInfo();
-  const { address, phones = [], email, mapUrl, mapEmbed, departmentUrl, social = {} } = contact;
+  const { address, phones = [], email, mapUrl, mapEmbed, departmentUrl, departmentFacebook, social = {} } = contact;
   const people = contact.showExecutives ? await getClubContacts(contact.executiveCount || 2) : []; // President, Vice President, …
   const socials = Object.entries(SOCIAL).filter(([key]) => social[key]);
   const [hotline, ...otherPhones] = phones;
@@ -132,7 +132,7 @@ export default async function Page() {
               </section>
             )}
 
-            {(departmentUrl || socials.length > 0) && (
+            {(departmentUrl || departmentFacebook || socials.length > 0) && (
               <section className="rounded-2xl border border-line/10 bg-surface p-5 shadow-sm">
                 {departmentUrl && (
                   <a href={departmentUrl} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-3">
@@ -144,8 +144,18 @@ export default async function Page() {
                     <FaExternalLinkAlt className="shrink-0 text-xs text-faint group-hover:text-orange-500" aria-hidden />
                   </a>
                 )}
+                {departmentFacebook && (
+                  <a href={departmentFacebook} target="_blank" rel="noopener noreferrer" className={cn('group flex items-center gap-3', departmentUrl && 'mt-4 border-t border-line/10 pt-4')}>
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-lg text-blue-600 dark:text-blue-400"><FaFacebookF aria-hidden /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold text-ink group-hover:text-orange-600 dark:group-hover:text-orange-400">CSE Department on Facebook</span>
+                      <span className="block text-xs text-muted">Department news and notices</span>
+                    </span>
+                    <FaExternalLinkAlt className="shrink-0 text-xs text-faint group-hover:text-orange-500" aria-hidden />
+                  </a>
+                )}
                 {socials.length > 0 && (
-                  <div className={cn('flex items-center justify-between gap-3', departmentUrl && 'mt-4 border-t border-line/10 pt-4')}>
+                  <div className={cn('flex items-center justify-between gap-3', (departmentUrl || departmentFacebook) && 'mt-4 border-t border-line/10 pt-4')}>
                     <p className="text-sm font-medium text-body">Follow the club</p>
                     <div className="flex gap-2">
                       {socials.map(([key, [label, Icon]]) => (

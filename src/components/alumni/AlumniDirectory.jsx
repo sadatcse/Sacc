@@ -17,7 +17,7 @@ const SORTS = {
   oldest: { label: 'Batch (oldest)', compare: (a, b) => a.batch.localeCompare(b.batch, undefined, { numeric: true }) || a.name.localeCompare(b.name) },
 };
 
-const EMPTY_FILTERS = { batch: '', company: '', role: '', featured: '' };
+const EMPTY_FILTERS = { batch: '', company: '', role: '', featured: '', spotlight: '' };
 
 const uniqueSorted = (values) => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
@@ -160,6 +160,7 @@ export default function AlumniDirectory({ alumni, signedIn = false }) {
       .filter((a) => !filters.company || a.company === filters.company)
       .filter((a) => !filters.role || a.role === filters.role)
       .filter((a) => !filters.featured || (filters.featured === 'yes' ? a.featured : !a.featured))
+      .filter((a) => !filters.spotlight || a.spotlight)
       .sort(SORTS[sort].compare);
   }, [alumni, deferredQuery, filters, sort]);
 
@@ -235,10 +236,14 @@ export default function AlumniDirectory({ alumni, signedIn = false }) {
                 <option value="">All</option>
                 {options.role.map((v) => <option key={v} value={v}>{v}</option>)}
               </PillSelect>
-              <PillSelect label="Featured" value={filters.featured} onChange={setFilter('featured')}>
+              <PillSelect label="Club role" value={filters.featured} onChange={setFilter('featured')}>
                 <option value="">All</option>
                 <option value="yes">Club leaders</option>
                 <option value="no">Others</option>
+              </PillSelect>
+              <PillSelect label="Featured" value={filters.spotlight} onChange={setFilter('spotlight')}>
+                <option value="">All</option>
+                <option value="yes">Featured alumni</option>
               </PillSelect>
               {activeFilterCount > 0 && (
                 <button type="button" onClick={() => setFilters(EMPTY_FILTERS)} className="inline-flex items-center gap-1.5 text-sm text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300">

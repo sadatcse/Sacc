@@ -56,6 +56,7 @@ export const DEFAULTS = {
     mapUrl: siteConfig.contact.mapUrl,
     mapEmbed: siteConfig.contact.mapEmbed,
     departmentUrl: 'https://southasiauni.ac.bd/department/bsc-in-computer-science-and-engineering',
+    departmentFacebook: 'https://www.facebook.com/southasiauni.cse/',
     social: { ...siteConfig.social },
     showExecutives: true, // newest committee's top student executives on /contact and the home page
     executiveCount: 2,
@@ -64,6 +65,7 @@ export const DEFAULTS = {
     open: true,
     notice: 'Registration is open now.',
     fee: 500,
+    renewFee: 300, // per year — Account → Payments renews for 1–3 years
     bkash: '',
     nagad: '',
     rocket: '',
@@ -168,6 +170,7 @@ const CLEANERS = {
       mapUrl: url(input.mapUrl, 'Google Maps link'),
       mapEmbed,
       departmentUrl: url(input.departmentUrl, 'CSE department link'),
+      departmentFacebook: url(input.departmentFacebook, 'CSE department Facebook page'),
       social: Object.fromEntries(Object.keys(DEFAULTS.contact.social).map((k) => [k, url(input.social?.[k], `${k[0].toUpperCase()}${k.slice(1)} link`)])),
       showExecutives: input.showExecutives === true || input.showExecutives === 'true',
       executiveCount: Number.isInteger(count) && count >= 1 && count <= 6 ? count : 2,
@@ -222,10 +225,13 @@ const CLEANERS = {
   membership: (input) => {
     const fee = Number(input.fee);
     if (!Number.isFinite(fee) || fee < 0) throw new HttpError(400, 'Fee must be a positive number.');
+    const renewFee = input.renewFee === undefined || input.renewFee === '' ? DEFAULTS.membership.renewFee : Number(input.renewFee);
+    if (!Number.isFinite(renewFee) || renewFee < 0) throw new HttpError(400, 'Renewal fee must be a positive number.');
     return {
       open: input.open === true || input.open === 'true',
       notice: str(input.notice, 300),
       fee,
+      renewFee,
       bkash: str(input.bkash, 20),
       nagad: str(input.nagad, 20),
       rocket: str(input.rocket, 20),

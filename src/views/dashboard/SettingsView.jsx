@@ -100,6 +100,7 @@ function useSettingForm(key) {
 const PAYMENT_FIELDS = [
   { name: 'notice', label: 'Notice shown on the Join page', full: true, placeholder: 'Registration is open now.' },
   { name: 'fee', label: 'Membership fee (BDT)', type: 'number' },
+  { name: 'renewFee', label: 'Renewal fee per year (BDT)', type: 'number', help: 'Members renew for 1–3 years.' },
   { name: 'reference', label: 'Payment reference instruction', placeholder: 'Your name_Student ID' },
   { name: 'bkash', label: 'bKash number', placeholder: '01XXXXXXXXX' },
   { name: 'nagad', label: 'Nagad number', placeholder: '01XXXXXXXXX' },
@@ -122,6 +123,7 @@ const CONTACT_FIELDS = [
   },
   { type: 'heading', label: 'Links' },
   { name: 'departmentUrl', label: 'CSE department page', type: 'url', full: true, help: 'Used by "Visit CSE Department" on the home page, the footer and the Contact page.' },
+  { name: 'departmentFacebook', label: 'CSE department Facebook page', type: 'url', full: true, placeholder: 'https://www.facebook.com/southasiauni.cse/', help: 'Shown in the footer and on the Contact page.' },
   { name: 'social.facebook', label: 'Facebook page', type: 'url', placeholder: 'https://www.facebook.com/…' },
   { name: 'social.linkedin', label: 'LinkedIn', type: 'url', placeholder: 'https://www.linkedin.com/company/…' },
   { name: 'social.github', label: 'GitHub', type: 'url', placeholder: 'https://github.com/…' },
@@ -290,7 +292,7 @@ export default function SettingsView() {
   };
 
   // The on/off switch saves immediately
-  const toggleRegistration = (open) => membership.save({ ...membership.values, open, fee: Number(membership.values.fee) || 0 });
+  const toggleRegistration = (open) => membership.save({ ...membership.values, open, fee: Number(membership.values.fee) || 0, renewFee: Number(membership.values.renewFee) || 0 });
 
   return (
     <>
@@ -345,7 +347,7 @@ export default function SettingsView() {
             <>
               <Alert type={membership.status.type || 'info'} className="mr-auto py-1.5">{membership.status.message}</Alert>
               <Button variant="secondary" href="/join" target="_blank"><FaExternalLinkAlt /> Join page</Button>
-              <Button onClick={() => membership.save({ ...membership.values, fee: Number(membership.values.fee) || 0 })} disabled={membership.saving || !membership.dirty}>
+              <Button onClick={() => membership.save({ ...membership.values, fee: Number(membership.values.fee) || 0, renewFee: Number(membership.values.renewFee) || 0 })} disabled={membership.saving || !membership.dirty}>
                 {membership.saving ? 'Saving…' : 'Save details'}
               </Button>
             </>

@@ -68,6 +68,7 @@ const AlumniProfileSchema = new mongoose.Schema(
 
     featured: { type: String, trim: true, default: '', maxlength: 80 }, // club position held, e.g. "President '24"
     approved: { type: Boolean, default: false, index: true },
+    spotlight: { type: Boolean, default: false }, // "Featured alumni" slideshow on /alumni (set by admins, max 6 shown)
     // The alumnus' own choice: true = keep my profile off the website (directory + profile page),
     // even when an admin has approved it
     hideProfile: { type: Boolean, default: false },

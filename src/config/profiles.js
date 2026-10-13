@@ -66,7 +66,7 @@ export const PROFILE_CONFIG = {
       { name: 'showEmail', label: 'Show my email (Links → Email) to signed-in members', type: 'boolean' },
       { name: 'showPhone', label: 'Show my phone number to signed-in members', type: 'boolean' },
       { type: 'heading', label: 'Privacy' },
-      { name: 'hideProfile', label: 'Hide my profile from the website (Alumni directory and profile page)', type: 'boolean' },
+      { name: 'hideProfile', label: 'Hide my profile from the website (Alumni directory and profile page). When shown, only verified club members can see your full profile.', type: 'boolean' },
       { name: 'links', label: 'Links', type: 'links' },
     ],
   },

@@ -12,7 +12,7 @@ const FIELDS = {
   name: 'text', photo: 'url', studentId: 'text', department: 'text', degree: 'text', batch: 'text', shift: 'shift',
   graduationYear: 'number', jobTitle: 'text', company: 'text', industry: 'text', location: 'text', country: 'text',
   bio: 'longtext', quote: 'longtext', skills: 'list', achievements: 'lines', experience: 'experience', education: 'education',
-  links: 'links', openToMentor: 'boolean', showEmail: 'boolean', phone: 'text', showPhone: 'boolean', hideProfile: 'boolean', featured: 'text', approved: 'boolean',
+  links: 'links', openToMentor: 'boolean', showEmail: 'boolean', phone: 'text', showPhone: 'boolean', hideProfile: 'boolean', featured: 'text', approved: 'boolean', spotlight: 'boolean',
 };
 
 // Shape used by <AlumniDirectory /> on /alumni
@@ -40,6 +40,8 @@ function toDirectoryEntry(a, { withContact = false } = {}) {
     company: a.company || '',
     location: [a.location, a.country].filter(Boolean).join(', '),
     openToMentor: Boolean(a.openToMentor),
+    spotlight: Boolean(a.spotlight),
+    quote: a.quote || '',
     links: socialLinks(a),
     hasContact: Boolean(contact.email || contact.phone),
     ...(withContact && { contact }),
@@ -49,7 +51,7 @@ function toDirectoryEntry(a, { withContact = false } = {}) {
 
 // Public profile — private fields (user link, approval flag, student ID, hidden email) removed
 function toPublicProfile(a) {
-  const { user, approved, hideProfile, showEmail, showPhone, phone, studentId, links = {}, ...rest } = a;
+  const { user, approved, hideProfile, spotlight: _spotlight, showEmail, showPhone, phone, studentId, links = {}, ...rest } = a;
   const contact = sharedContact(a);
   return toPlain({ ...rest, links: { ...socialLinks(a), email: contact.email }, phone: contact.phone });
 }
@@ -88,6 +90,13 @@ export async function getRelatedAlumni(profile, limit = 4) {
 }
 
 // ---------- admin ----------
+
+// Up to 6 featured alumni for the /alumni slideshow (most recently featured first)
+export async function getFeaturedAlumni(limit = 6) {
+  await connectDB();
+  const rows = await AlumniProfile.find({ ...PUBLIC, spotlight: true }).sort({ updatedAt: -1 }).limit(limit).lean();
+  return rows.map((a) => toDirectoryEntry(a));
+}
 
 export async function listAlumni({ approved, search } = {}) {
   const filter = {};

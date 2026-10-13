@@ -2,7 +2,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FaUsers, FaMale, FaFemale, FaPhoneAlt, FaWhatsapp, FaEnvelope, FaFacebookF, FaLock, FaSearch, FaTint } from 'react-icons/fa';
 import { apiSecure, apiError } from '@/lib/api-client';
-import { cn, formatPhone } from '@/lib/utils';
+import { cn, formatDate, formatPhone } from '@/lib/utils';
+import { PAYMENT_METHODS, SHIFT_OPTIONS } from '@/config/membership';
+import ExportButtons from '@/components/dashboard/ExportButtons';
 import StatCard, { StatGrid } from '@/components/dashboard/StatCard';
 import Alert from '@/components/ui/Alert';
 import Skeleton from '@/components/ui/Skeleton';
@@ -13,6 +15,30 @@ const GENDERS = [
   { value: 'male', label: 'Male' },
   { value: 'female', label: 'Female' },
 ];
+const PAYMENT_LABELS = Object.fromEntries(PAYMENT_METHODS.map((m) => [m.value, m.label]));
+const SHIFT_LABELS = Object.fromEntries(SHIFT_OPTIONS.map((s) => [s.value, s.label]));
+const STATES = [
+  { value: '', label: 'Active & expired' },
+  { value: 'active', label: 'Active' },
+  { value: 'expired', label: 'Expired' },
+];
+
+// Full member details for the admin download (from the approved applications)
+const EXPORT_COLUMNS = [
+  ['Name', (a) => `${a.firstName} ${a.lastName}`], ['Student ID', (a) => a.studentId], ['Department', (a) => a.department], ['Batch', (a) => a.batch],
+  ['Shift', (a) => SHIFT_LABELS[a.shift]], ['Gender', (a) => a.gender], ['Phone (WhatsApp)', (a) => a.phone], ['Backup phone', (a) => a.backupPhone],
+  ['Email', (a) => a.personalEmail], ['Blood group', (a) => a.bloodGroup], ['T-shirt', (a) => a.tshirtSize], ['Facebook', (a) => a.facebook],
+  ['Joined', (a) => formatDate(a.joinedAt)], ['Valid until', (a) => formatDate(a.expiresAt)], ['Membership', (a) => (a.expired ? 'Expired' : 'Active')],
+  ['Joining payment', (a) => PAYMENT_LABELS[a.paymentMethod]], ['Transaction ID', (a) => a.transactionId], ['Joining fee (BDT)', (a) => Number(a.amount) || 0],
+  ['Soft skills', (a) => (a.softSkills || []).join('; ')],
+];
+
+async function loadMemberDetails() {
+  const res = await apiSecure.get('/membership?status=approved');
+  const rows = (res.data.data || []).sort((a, b) => b.batch.localeCompare(a.batch, undefined, { numeric: true }) || a.firstName.localeCompare(b.firstName));
+  return { columns: EXPORT_COLUMNS, rows };
+}
+
 const tel = (phone) => phone.replace(/[^\d+]/g, '');
 const whatsapp = (phone) => phone.replace(/\D/g, '').replace(/^0(?=1)/, '880');
 
@@ -55,6 +81,11 @@ function MemberCard({ m }) {
             {m.gender === 'female' ? 'Female' : 'Male'}
           </span>
         )}
+        {m.expiresAt && (
+          <span className={cn('rounded-full px-2 py-0.5 font-medium', m.expired ? 'bg-red-500/10 text-red-700 dark:text-red-300' : 'bg-green-500/10 text-green-700 dark:text-green-300')}>
+            {m.expired ? 'Expired' : 'Valid until'} {formatDate(m.expiresAt)}
+          </span>
+        )}
         {m.bloodGroup && (
           <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 font-medium text-red-700 dark:text-red-300">
             <FaTint aria-hidden className="text-[9px]" /> {m.bloodGroup}
@@ -88,6 +119,7 @@ export default function MembersDirectory() {
   const [batch, setBatch] = useState('');
   const [gender, setGender] = useState('');
   const [search, setSearch] = useState('');
+  const [state, setState] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -107,9 +139,10 @@ export default function MembersDirectory() {
       (m) =>
         (!batch || m.batch === batch) &&
         (!gender || m.gender === gender) &&
+        (!state || Boolean(m.expired) === (state === 'expired')) &&
         (!q || [m.name, m.studentId, m.department, m.batch].some((f) => f?.toLowerCase().includes(q)))
     );
-  }, [data, batch, gender, search]);
+  }, [data, batch, gender, search, state]);
 
   if (error) return <Alert type="info">{error}</Alert>;
 
@@ -122,6 +155,12 @@ export default function MembersDirectory() {
         <StatCard label="Female" value={s.female} icon={FaFemale} tone="red" loading={!data} />
         <StatCard label="Batches" value={data?.batches.length} icon={FaUsers} tone="amber" loading={!data} />
       </StatGrid>
+
+      {data?.viewer.admin && (
+        <div className="mb-4 flex justify-end">
+          <ExportButtons filename="club-members" title="Club members" load={loadMemberDetails} disabled={!data.members.length} />
+        </div>
+      )}
 
       {data && !data.viewer.seesAll && (
         <p className="mb-4 flex items-center gap-2 text-xs text-subtle">
@@ -143,6 +182,11 @@ export default function MembersDirectory() {
           <option value="">All batches</option>
           {data?.batches.map((b) => <option key={b} value={b}>{b}</option>)}
         </select>
+        {data?.viewer.admin && (
+          <select value={state} onChange={(e) => setState(e.target.value)} aria-label="Membership" className="h-10 rounded-lg border border-line/15 bg-canvas px-3 text-sm text-ink focus:border-primary-500 focus:outline-none">
+            {STATES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        )}
         <div className="flex rounded-lg border border-line/15 p-0.5" role="radiogroup" aria-label="Gender">
           {GENDERS.map((g) => (
             <button

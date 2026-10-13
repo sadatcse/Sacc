@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { FaUserGraduate, FaSignInAlt, FaUserEdit, FaCog, FaFileSignature, FaUserCheck, FaAddressCard, FaHandsHelping, FaNetworkWired, FaBullhorn } from 'react-icons/fa';
 import AlumniDirectory from '@/components/alumni/AlumniDirectory';
+import FeaturedAlumni from '@/components/alumni/FeaturedAlumni';
 import DarkPageHeader from '@/components/ui/DarkPageHeader';
-import { getApprovedAlumni } from '@/server/services/alumni.service';
+import { getApprovedAlumni, getFeaturedAlumni } from '@/server/services/alumni.service';
 import { getServerSession } from '@/lib/auth-guard';
 
 export const metadata = {
@@ -50,7 +51,7 @@ function HeaderActions({ session }) {
 export default async function Page() {
   // Shared email / phone numbers are only sent to signed-in members
   const session = await getServerSession();
-  const alumni = await getApprovedAlumni({ withContact: Boolean(session) });
+  const [alumni, featured] = await Promise.all([getApprovedAlumni({ withContact: Boolean(session) }), getFeaturedAlumni(6)]);
   return (
     <div className="min-h-[70vh] bg-canvas text-body">
       <DarkPageHeader
@@ -65,6 +66,7 @@ export default async function Page() {
       </DarkPageHeader>
 
       <section className="container max-w-7xl 2xl:max-w-screen-2xl py-10 md:py-12">
+        <FeaturedAlumni alumni={featured} />
         <AlumniDirectory alumni={alumni} signedIn={Boolean(session)} />
       </section>
 

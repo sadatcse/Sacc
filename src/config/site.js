@@ -18,6 +18,8 @@ export const siteConfig = {
     mapUrl: 'https://maps.app.goo.gl/7TL1jfYZFiRLAU6p8',
     mapEmbed: 'https://maps.google.com/maps?q=University%20of%20South%20Asia&ll=23.7931971,90.3161747&z=16&output=embed',
   },
+  // Built by — shown in the footer
+  developer: { name: 'Md Sadat Khan', url: 'https://github.com/sadatcse' },
   social: {
     facebook: 'https://www.facebook.com/southasiacomputerclub',
     linkedin: '',

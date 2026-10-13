@@ -56,7 +56,11 @@ export default function Footer({ contact: saved }) {
 
   const contact = saved || siteConfig.contact;
   const socials = Object.entries(saved?.social || siteConfig.social).filter(([key, url]) => url && SOCIAL_ICONS[key]);
-  const exploreLinks = contact.departmentUrl ? [...footerNav, { label: 'CSE Department', href: contact.departmentUrl, external: true }] : footerNav;
+  const exploreLinks = [
+    ...footerNav,
+    contact.departmentUrl && { label: 'CSE Department', href: contact.departmentUrl, external: true },
+    contact.departmentFacebook && { label: 'CSE Dept. Facebook', href: contact.departmentFacebook, external: true },
+  ].filter(Boolean);
 
   return (
     <footer className="border-t border-line/10 bg-canvas">
@@ -122,7 +126,15 @@ export default function Footer({ contact: saved }) {
 
       <div className="border-t border-line/10">
         <Container className="flex flex-col items-center justify-between gap-3 py-5 text-center text-xs text-subtle sm:flex-row sm:text-left">
-          <p>© {new Date().getFullYear()} {siteConfig.name}. All rights reserved.</p>
+          <div className="space-y-1">
+            <p>© {new Date().getFullYear()} {siteConfig.name}. All rights reserved.</p>
+            <p>
+              Design &amp; development by{' '}
+              <a href={siteConfig.developer.url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 font-semibold text-body ${linkHover}`}>
+                <FaGithub aria-hidden /> {siteConfig.developer.name}
+              </a>
+            </p>
+          </div>
           {visitors && (
             <ul className="flex flex-wrap justify-center gap-2" aria-label="Visitors">
               {[

@@ -1,10 +1,11 @@
 'use client';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { FaUserPlus, FaHourglassHalf } from 'react-icons/fa';
+import { FaUserPlus, FaHourglassHalf, FaSyncAlt } from 'react-icons/fa';
 import useAuth from '@/hooks/useAuth';
 import { safeRedirect } from '@/lib/redirect';
+import { api } from '@/lib/api-client';
 import AuthCard, { AuthButton, AuthError, AuthInput } from '@/components/auth/AuthCard';
 
 export default function LoginView() {
@@ -14,20 +15,38 @@ export default function LoginView() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [captcha, setCaptcha] = useState(null); // { question, token }
+  const [answer, setAnswer] = useState('');
   const from = searchParams?.get('from') || '';
   const registerHref = from ? `/register?from=${encodeURIComponent(from)}` : '/register';
+
+  // Each question works once, so a new one is loaded after every failed attempt
+  const loadCaptcha = useCallback(() => {
+    return api
+      .get('/auth/captcha')
+      .then((res) => {
+        setCaptcha(res.data.data);
+        setAnswer('');
+      })
+      .catch(() => setCaptcha({ question: '', token: '' }));
+  }, []);
+
+  useEffect(() => {
+    loadCaptcha();
+  }, [loadCaptcha]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setError('');
     try {
-      const { user, redirectTo } = await signIn(email, password);
+      const { user, redirectTo } = await signIn(email, password, { captchaToken: captcha?.token, captchaAnswer: answer });
       // Full reload so the proxy sees the new cookie
       window.location.assign(safeRedirect(from, user.role, redirectTo));
     } catch (err) {
       setError(err.message);
       setSubmitting(false);
+      loadCaptcha();
     }
   };
 
@@ -67,7 +86,40 @@ export default function LoginView() {
         )}
         <AuthInput label="Email" name="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <AuthInput label="Password" name="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-        <AuthButton disabled={submitting}>{submitting ? 'Signing in…' : 'Sign in'}</AuthButton>
+        <div>
+          <span className="mb-1.5 block text-sm font-medium text-body">Security check</span>
+          <div className="flex items-center gap-2">
+            <span
+              aria-live="polite"
+              className="flex h-11 min-w-[7.5rem] select-none items-center justify-center rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 font-mono text-base font-bold tracking-wider text-orange-700 dark:text-orange-300"
+            >
+              {captcha ? (captcha.question ? `${captcha.question} = ?` : 'Unavailable') : '…'}
+            </span>
+            <button
+              type="button"
+              onClick={loadCaptcha}
+              aria-label="New question"
+              title="New question"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-line/10 text-muted transition-colors hover:border-orange-500/50 hover:text-orange-600 dark:hover:text-orange-400"
+            >
+              <FaSyncAlt aria-hidden />
+            </button>
+            <input
+              id="captcha"
+              name="captcha"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="off"
+              aria-label={captcha?.question ? `What is ${captcha.question}?` : 'Answer'}
+              placeholder="Answer"
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value.replace(/\D/g, '').slice(0, 3))}
+              required
+              className="h-11 w-full min-w-0 rounded-lg border border-line/10 bg-canvas/60 px-3 text-sm text-ink outline-none transition-colors placeholder:text-faint hover:border-orange-500/50 focus:border-orange-500"
+            />
+          </div>
+        </div>
+        <AuthButton disabled={submitting || !captcha?.token}>{submitting ? 'Signing in…' : 'Sign in'}</AuthButton>
       </form>
     </AuthCard>
   );

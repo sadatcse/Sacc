@@ -8,6 +8,7 @@ import { NextResponse, after } from 'next/server';
 import * as mail from '@/server/services/mail.service';
 import { str } from '@/server/validate';
 import { recordActivity, recordLogin } from '@/server/services/audit.service';
+import { createCaptcha, verifyCaptcha } from '@/lib/captcha';
 
 // Who can sign up on /register, and what each must tell us. Every new account starts 'pending' and
 // can't sign in until an admin approves it. Students become members (and get a login) through /join.
@@ -25,12 +26,16 @@ function sessionResponse(user, status = 200, message) {
 
 export async function signIn({ req }) {
   if (!process.env.JWT_SECRET) throw new HttpError(500, 'Server misconfiguration: JWT_SECRET missing.');
-  const { email, password } = await readJson(req);
+  const { email, password, captchaToken, captchaAnswer } = await readJson(req);
   if (isRateLimited(`login:${getClientIp(req)}`)) {
     await recordLogin(req, { email, success: false, reason: 'Too many attempts (rate limited)' });
     throw new HttpError(429, 'Too many attempts. Try again in 15 minutes.');
   }
   if (!email || !password) throw new HttpError(400, 'Email and password are required.');
+  if (!verifyCaptcha(captchaToken, captchaAnswer)) {
+    await recordLogin(req, { email, success: false, reason: 'Wrong captcha answer' });
+    throw new HttpError(400, 'Wrong answer to the math question — try the new one.');
+  }
   let user;
   try {
     user = await users.authenticate(email, password);
@@ -41,6 +46,13 @@ export async function signIn({ req }) {
   }
   await recordLogin(req, { email, success: true, user });
   return sessionResponse(user);
+}
+
+// GET /api/auth/captcha → { question: '7 + 5', token } for the /login form
+export async function captcha() {
+  const response = ok(createCaptcha());
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
 }
 
 export async function register({ req }) {

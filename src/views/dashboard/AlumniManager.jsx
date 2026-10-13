@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { FaPlus, FaUserGraduate, FaCheckCircle, FaHourglassHalf, FaCheck, FaTimes, FaEyeSlash } from 'react-icons/fa';
+import { FaPlus, FaUserGraduate, FaCheckCircle, FaHourglassHalf, FaCheck, FaTimes, FaEyeSlash, FaStar, FaRegStar } from 'react-icons/fa';
 import useApi from '@/hooks/useApi';
 import usePagination from '@/hooks/usePagination';
 import { apiSecure, apiError } from '@/lib/api-client';
@@ -28,7 +28,10 @@ const FIELDS = [
   }),
   { type: 'heading', label: 'Visibility' },
   { name: 'approved', label: 'Show in the public directory (and the profile page)', type: 'checkbox', full: true },
+  { name: 'spotlight', label: 'Featured alumni — show in the slideshow on top of /alumni (up to 6)', type: 'checkbox', full: true },
 ];
+
+const FEATURED_LIMIT = 6;
 
 // Requests to become alumni sent earlier by students (the student form was removed). Approve = their account becomes alumni.
 function AlumniRequests({ onApproved }) {
@@ -95,6 +98,7 @@ export default function AlumniManager() {
   const { data: rows, setData: setRows, loading, error, reload } = useApi('/alumni?all=1', { initialData: [], select: (res) => res.data || [] });
   const [search, setSearch] = useState('');
   const [approved, setApproved] = useState('all');
+  const [featured, setFeatured] = useState('all');
   const [editing, setEditing] = useState(null);
   const [actionError, setActionError] = useState('');
 
@@ -103,9 +107,11 @@ export default function AlumniManager() {
     return rows.filter(
       (a) =>
         (approved === 'all' || a.approved === (approved === 'yes')) &&
+        (featured === 'all' || Boolean(a.spotlight) === (featured === 'yes')) &&
         (!q || [a.name, a.batch, a.jobTitle, a.company, a.user?.email].some((f) => f?.toLowerCase().includes(q)))
     );
-  }, [rows, search, approved]);
+  }, [rows, search, approved, featured]);
+  const featuredCount = rows.filter((a) => a.spotlight).length;
   const { page, setPage, pageCount, pageItems } = usePagination(filtered, 15);
   const replace = (row) => setRows((list) => list.map((a) => (a._id === row._id ? row : a)));
 
@@ -137,7 +143,34 @@ export default function AlumniManager() {
     }
   };
 
+  const toggleFeatured = async (row, e) => {
+    e.stopPropagation();
+    setActionError('');
+    try {
+      const res = await apiSecure.patch(`/alumni/${row._id}`, { spotlight: !row.spotlight });
+      replace(res.data.data);
+    } catch (err) {
+      setActionError(apiError(err));
+    }
+  };
+
   const columns = [
+    {
+      key: 'spotlight',
+      header: 'Featured',
+      render: (a) => (
+        <button
+          type="button"
+          onClick={(e) => toggleFeatured(a, e)}
+          aria-pressed={Boolean(a.spotlight)}
+          aria-label={a.spotlight ? `Remove ${a.name} from featured alumni` : `Feature ${a.name}`}
+          title={a.spotlight ? 'Featured — click to remove' : 'Click to feature in the /alumni slideshow'}
+          className={a.spotlight ? 'text-lg text-amber-500 hover:text-amber-600' : 'text-lg text-faint hover:text-amber-500'}
+        >
+          {a.spotlight ? <FaStar /> : <FaRegStar />}
+        </button>
+      ),
+    },
     {
       key: 'name',
       header: 'Alumnus',
@@ -181,21 +214,28 @@ export default function AlumniManager() {
         actions={<Button onClick={() => setEditing({ approved: true })}><FaPlus /> Add alumnus</Button>}
       />
 
-      <StatGrid cols={3}>
+      <StatGrid>
         <StatCard label="All entries" value={rows.length} icon={FaUserGraduate} tone="gray" loading={loading} />
         <StatCard label="Listed" value={rows.filter((a) => a.approved).length} icon={FaCheckCircle} tone="green" loading={loading} />
         <StatCard label="Pending approval" value={rows.filter((a) => !a.approved).length} icon={FaHourglassHalf} tone="amber" loading={loading} />
+        <StatCard label="Featured" value={featuredCount} hint={`Slideshow shows ${FEATURED_LIMIT}`} icon={FaStar} tone="red" loading={loading} />
       </StatGrid>
 
       <AlumniRequests onApproved={reload} />
       <Alert type="error" className="mb-4">{error || actionError}</Alert>
+      {featuredCount > FEATURED_LIMIT && (
+        <Alert type="warning" className="mb-4">{featuredCount} alumni are featured — the slideshow shows the {FEATURED_LIMIT} most recently updated. Unstar some to choose.</Alert>
+      )}
 
       <Card className="p-0">
         <FilterBar
           search={search}
           onSearch={setSearch}
           placeholder="Search name, batch, company…"
-          filters={[{ key: 'approved', value: approved, onChange: setApproved, options: [{ value: 'all', label: 'All' }, { value: 'yes', label: 'Listed' }, { value: 'no', label: 'Pending' }] }]}
+          filters={[
+            { key: 'approved', value: approved, onChange: setApproved, options: [{ value: 'all', label: 'All' }, { value: 'yes', label: 'Listed' }, { value: 'no', label: 'Pending' }] },
+            { key: 'featured', value: featured, onChange: setFeatured, options: [{ value: 'all', label: 'Featured & others' }, { value: 'yes', label: 'Featured only' }, { value: 'no', label: 'Not featured' }] },
+          ]}
         />
         <DataTable columns={columns} rows={pageItems} loading={loading} onRowClick={(a) => setEditing(a)} emptyTitle="No alumni found" />
         <Pagination page={page} pageCount={pageCount} onChange={setPage} />

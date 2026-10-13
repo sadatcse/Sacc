@@ -76,6 +76,7 @@ const ENTITIES = [
   [/^\/api\/alumni/, 'Alumni entry'],
   [/^\/api\/users/, 'User'],
   [/^\/api\/membership/, 'Membership application'],
+  [/^\/api\/payments/, 'Payment'],
   [/^\/api\/settings\/site/, 'Site settings'],
   [/^\/api\/settings\/about/, 'About page'],
   [/^\/api\/settings\/membership/, 'Registration settings'],

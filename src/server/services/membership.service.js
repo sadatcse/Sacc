@@ -8,6 +8,9 @@ import {
   APPLICATION_STATUSES, BLOOD_GROUPS, GENDER_OPTIONS, MOBILE_PAYMENT_METHODS, PAYMENT_METHODS, PHOTO_MAX_BYTES, SHIFT_OPTIONS, SOFT_SKILLS, TSHIRT_SIZES,
 } from '@/config/membership';
 import { getSetting } from '@/server/services/settings.service';
+import { ensureMembershipPayment, removeMembershipPayment } from '@/server/services/payment.service';
+import { addYears, membershipPeriod } from '@/lib/membership';
+import { MEMBERSHIP_TERM_YEARS } from '@/config/membership';
 import { HttpError } from '@/server/http';
 import { assertId, notFound, str, toPlain } from '@/server/validate';
 import { escapeRegex } from '@/lib/utils';
@@ -147,7 +150,7 @@ export async function listApplications({ status, search } = {}) {
     filter.$or = [{ firstName: re }, { lastName: re }, { studentId: re }, { personalEmail: re }, { phone: re }, { transactionId: re }, { batch: re }];
   }
   const rows = await MembershipApplication.find(filter).sort({ createdAt: -1 }).limit(2000).populate('reviewedBy', 'name').lean();
-  return toPlain(rows);
+  return toPlain(rows.map(withPeriod));
 }
 
 export async function getPhoto(id) {
@@ -157,7 +160,19 @@ export async function getPhoto(id) {
   return { data: Buffer.from(row.photo.data.buffer ?? row.photo.data), contentType: row.photo.contentType || 'image/jpeg' };
 }
 
-// Body: { status?, adminNote? }
+// Approved applications get their membership period filled in (older ones have no stored dates)
+function withPeriod(app) {
+  const period = membershipPeriod(app);
+  return period ? { ...app, joinedAt: period.joinedAt, expiresAt: period.expiresAt, expired: period.expired } : app;
+}
+
+function parseDate(value, label) {
+  const d = new Date(`${str(value, 10)}T00:00:00`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value)) || Number.isNaN(d.getTime())) throw new HttpError(400, `${label} must be a date.`);
+  return d;
+}
+
+// Body: { status?, adminNote?, gender?, joinedAt?, expiresAt? } (dates as YYYY-MM-DD)
 export async function reviewApplication(id, input = {}, { userId } = {}) {
   assertId(id, 'application');
   const $set = {};
@@ -174,8 +189,15 @@ export async function reviewApplication(id, input = {}, { userId } = {}) {
     if (!['male', 'female', ''].includes(input.gender)) throw new HttpError(400, 'Invalid gender.');
     $set.gender = input.gender;
   }
-  const before = await MembershipApplication.findById(id).select('status').lean();
+  // Admins can correct the membership period
+  if (input.joinedAt) $set.joinedAt = parseDate(input.joinedAt, 'Join date');
+  if (input.expiresAt) $set.expiresAt = parseDate(input.expiresAt, 'Valid until');
+  if ($set.joinedAt && $set.expiresAt && $set.expiresAt <= $set.joinedAt) throw new HttpError(400, '“Valid until” must be after the join date.');
+  const before = await MembershipApplication.findById(id).select('status joinedAt expiresAt').lean();
   if (!before) throw notFound('Application');
+  // First approval starts the membership: one year from today
+  if ($set.status === 'approved' && !before.joinedAt && !$set.joinedAt) $set.joinedAt = new Date();
+  if ($set.status === 'approved' && !before.expiresAt && !$set.expiresAt) $set.expiresAt = addYears($set.joinedAt || before.joinedAt, MEMBERSHIP_TERM_YEARS);
   const row = await MembershipApplication.findByIdAndUpdate(id, { $set, ...(Object.keys($unset).length && { $unset }) }, { returnDocument: 'after', runValidators: true })
     .populate('reviewedBy', 'name')
     .lean();
@@ -186,13 +208,17 @@ export async function reviewApplication(id, input = {}, { userId } = {}) {
     if (row.status === 'approved') await activateUser(row.user);
     else if (before.status === 'approved' && row.accountCreated) await User.updateOne({ _id: row.user, status: 'active' }, { $set: { status: 'pending' } });
   }
-  return { row: toPlain(row), previousStatus: before.status };
+  // The joining-fee record (Dashboard → Payments) follows the approval
+  if (row.status === 'approved') await ensureMembershipPayment(row);
+  else if (before.status === 'approved') await removeMembershipPayment(row._id);
+  return { row: toPlain(withPeriod(row)), previousStatus: before.status };
 }
 
 export async function deleteApplication(id) {
   assertId(id, 'application');
   const row = await MembershipApplication.findByIdAndDelete(id);
   if (!row) throw notFound('Application');
+  await removeMembershipPayment(row._id);
   // A login created by this application that was never approved goes with it
   if (row.accountCreated && row.user) {
     const removed = await User.findOneAndDelete({ _id: row.user, status: 'pending', role: 'student' });

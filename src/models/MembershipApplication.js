@@ -38,6 +38,9 @@ const MembershipApplicationSchema = new mongoose.Schema(
     adminNote: { type: String, trim: true, default: '', maxlength: 1000 },
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     reviewedAt: { type: Date },
+    // Membership period: joinedAt = first approval, expiresAt = joinedAt + 1 year, moved forward by verified renewals
+    joinedAt: { type: Date },
+    expiresAt: { type: Date },
     ip: { type: String, default: '' },
   },
   { timestamps: true }

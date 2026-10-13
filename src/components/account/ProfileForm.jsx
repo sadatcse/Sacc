@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { FaLock } from 'react-icons/fa';
 import useAuth from '@/hooks/useAuth';
 import { apiSecure, apiError } from '@/lib/api-client';
 import { LINK_FIELDS, PROFILE_CONFIG, formField } from '@/config/profiles';
@@ -72,10 +73,14 @@ export default function ProfileForm() {
             ) : profile?.approved ? (
               <>
                 Your profile is listed in the public Alumni directory —{' '}
-                <a href={`/alumni/${profile.slug}`} target="_blank" rel="noopener noreferrer" className="font-semibold underline">view your public page</a>.
+                <a href={`/alumni/${profile.slug}`} target="_blank" rel="noopener noreferrer" className="font-semibold underline">view your page</a>.
+                <span className="mt-1 block">
+                  <FaLock className="mr-1 inline text-xs" aria-hidden />
+                  Only verified club members (signed in) can see your full profile. Visitors only see your directory card (name, job, batch and social links).
+                </span>
               </>
             ) : (
-              'Your profile will appear in the Alumni directory once an admin approves it.'
+              'Your profile will appear in the Alumni directory once an admin approves it. Only verified club members (signed in) can see your full profile.'
             )}
           </Alert>
         )}

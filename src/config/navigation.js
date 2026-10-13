@@ -1,5 +1,5 @@
 import { TbLayoutDashboard } from 'react-icons/tb';
-import { FaGlobe, FaEnvelope, FaNewspaper, FaUsers, FaUserTie, FaUserGraduate, FaIdCard, FaLock, FaInfoCircle, FaUserPlus, FaCog, FaSignInAlt, FaHistory, FaImages } from 'react-icons/fa';
+import { FaGlobe, FaEnvelope, FaNewspaper, FaUsers, FaUserTie, FaUserGraduate, FaIdCard, FaLock, FaInfoCircle, FaUserPlus, FaCog, FaSignInAlt, FaHistory, FaImages, FaMoneyBillWave } from 'react-icons/fa';
 
 // Public site navigation (Navbar + Footer)
 export const mainNav = [
@@ -47,6 +47,7 @@ export const dashboardNav = [
     title: 'People',
     items: [
       { label: 'Membership', href: '/dashboard/membership', icon: FaUserPlus },
+      { label: 'Payments', href: '/dashboard/payments', icon: FaMoneyBillWave },
       { label: 'Users', href: '/dashboard/users', icon: FaUsers },
     ],
   },
@@ -75,6 +76,7 @@ export const accountNav = [
   { label: 'Profile', href: '/account', icon: FaIdCard },
   { label: 'Password', href: '/account/security', icon: FaLock },
   { label: 'Club Members', href: '/account/members', icon: FaUsers, roles: ['student'] },
+  { label: 'Payments', href: '/account/payments', icon: FaMoneyBillWave, roles: ['student', 'alumni'] },
 ];
 
 // Routes where the public Navbar/Footer are hidden

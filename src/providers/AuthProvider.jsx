@@ -36,9 +36,10 @@ export default function AuthProvider({ children }) {
   }, [refresh]);
 
   // Both return { user, redirectTo }
-  const signIn = useCallback(async (email, password) => {
+  // captcha = { captchaToken, captchaAnswer } from the math question on /login
+  const signIn = useCallback(async (email, password, captcha = {}) => {
     try {
-      const res = await api.post('/auth/sign-in', { email, password }, { withCredentials: true });
+      const res = await api.post('/auth/sign-in', { email, password, ...captcha }, { withCredentials: true });
       setUser(res.data.data.user);
       return res.data.data;
     } catch (err) {
