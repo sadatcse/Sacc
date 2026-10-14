@@ -71,6 +71,7 @@ University of South Asia Computer Club site. Next.js 16 (App Router, Turbopack) 
 | `scripts/create-admin.js` | Creates/promotes/resets an admin (faculty) user |
 | `scripts/seed.js` | `npm run seed`: 3 demo accounts (admin/student/alumni, from `SEED_*`) + test logins with full profiles (`test.student@usacc.edu.bd` / `TestStudent@123` — male member, `test.female@usacc.edu.bd` / `TestFemale@123` — female member, `test.alumni@usacc.edu.bd` / `TestAlumni@123`) + 20 SAMPLE approved club members (`src/data/seed/members.js`) + news, executives, alumni from `src/data/seed/` |
 | `public/logo.png` | Club logo (270×251), served at `/logo.png`; used by `Logo` and the Open Graph image |
+| `public/university-logo.png` | University of South Asia logo (170×172, transparent) — printed next to the club logo on certificates |
 | `public/gallery/` | Gallery photos — everything here shows on `/gallery` and the home page preview (newest 6) |
 | `public/news/` | News post cover photos |
 | `public/about/` | About page photos (`inauguration-2024.jpg`) |

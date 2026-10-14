@@ -59,10 +59,11 @@ function centered(page, text, { y, font, size, color = INK, x = W / 2, maxWidth 
   page.drawText(t, { x: x - font.widthOfTextAtSize(t, s) / 2, y, size: s, font, color });
 }
 
-let logoBytes;
-async function readLogo() {
-  if (logoBytes === undefined) logoBytes = await fs.readFile(path.join(process.cwd(), 'public', 'logo.png')).catch(() => null);
-  return logoBytes;
+// Logos printed in the header: the university (public/university-logo.png) and the club (public/logo.png)
+const logoCache = new Map();
+async function readPublicFile(name) {
+  if (!logoCache.has(name)) logoCache.set(name, await fs.readFile(path.join(process.cwd(), 'public', name)).catch(() => null));
+  return logoCache.get(name);
 }
 
 async function embedImage(pdf, { data, contentType } = {}) {
@@ -112,13 +113,21 @@ export async function certificatePdf({ certificate: c, template, signatures = {}
   page.drawRectangle({ x: 18, y: 18, width: W - 36, height: H - 36, borderColor: ORANGE, borderWidth: 3 });
   page.drawRectangle({ x: 28, y: 28, width: W - 56, height: H - 56, borderColor: GOLD, borderWidth: 0.8 });
 
-  // Header: logo, club, department
-  const logo = await embedImage(pdf, { data: await readLogo(), contentType: 'image/png' });
-  if (logo) {
-    const h = 54;
-    const w = (logo.width / logo.height) * h;
-    page.drawImage(logo, { x: (W - w) / 2, y: H - 98, width: w, height: h });
-  }
+  // Header: university logo | club logo (side by side, centred), club name, department
+  const logos = (
+    await Promise.all(['university-logo.png', 'logo.png'].map(async (name) => embedImage(pdf, { data: await readPublicFile(name), contentType: 'image/png' })))
+  ).filter(Boolean);
+  const logoH = 56;
+  const logoGap = 28;
+  const widths = logos.map((img) => (img.width / img.height) * logoH);
+  let logoX = (W - widths.reduce((a, b) => a + b, 0) - logoGap * (logos.length - 1)) / 2;
+  logos.forEach((img, i) => {
+    if (i > 0) {
+      page.drawLine({ start: { x: logoX - logoGap / 2, y: H - 96 }, end: { x: logoX - logoGap / 2, y: H - 48 }, thickness: 0.8, color: GOLD });
+    }
+    page.drawImage(img, { x: logoX, y: H - 100, width: widths[i], height: logoH });
+    logoX += widths[i] + logoGap;
+  });
   centered(page, (template.organization || club).toUpperCase(), { y: H - 120, font: font.sansBold, size: 17 });
   centered(page, template.subtitle, { y: H - 136, font: font.sans, size: 10.5, color: MUTED });
 
