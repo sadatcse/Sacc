@@ -125,18 +125,17 @@ export default function Footer({ contact: saved }) {
       </Container>
 
       <div className="border-t border-line/10">
-        <Container className="flex flex-col items-center justify-between gap-3 py-5 text-center text-xs text-subtle sm:flex-row sm:text-left">
-          <div className="space-y-1">
-            <p>© {new Date().getFullYear()} {siteConfig.name}. All rights reserved.</p>
-            <p>
-              Design &amp; development by{' '}
-              <a href={siteConfig.developer.url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 font-semibold text-body ${linkHover}`}>
-                <FaGithub aria-hidden /> {siteConfig.developer.name}
-              </a>
-            </p>
-          </div>
+        {/* Copyright (left) · developer credit (centre) · visitor counts (right); stacked on phones */}
+        <Container className="flex flex-col items-center gap-3 py-5 text-center text-xs text-subtle lg:grid lg:grid-cols-[1fr_auto_1fr]">
+          <p className="lg:justify-self-start lg:text-left">© {new Date().getFullYear()} {siteConfig.name}. All rights reserved.</p>
+          <p className="whitespace-nowrap">
+            Design &amp; development by{' '}
+            <a href={siteConfig.developer.url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 font-semibold text-body ${linkHover}`}>
+              <FaGithub aria-hidden /> {siteConfig.developer.name}
+            </a>
+          </p>
           {visitors && (
-            <ul className="flex flex-wrap justify-center gap-2" aria-label="Visitors">
+            <ul className="flex flex-wrap justify-center gap-2 lg:justify-self-end" aria-label="Visitors">
               {[
                 ['Today', visitors.today],
                 ['Total', visitors.total],

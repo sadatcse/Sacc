@@ -30,6 +30,13 @@ const ExecutiveSchema = new mongoose.Schema(
     personalEmail: { type: String, trim: true, lowercase: true, default: '', maxlength: 160, select: false },
     bio: { type: String, trim: true, default: '', maxlength: 1000 },
     links: { type: LinksSchema, default: () => ({}) },
+    // Faculty advisors: signature image (PNG / JPG) printed on student executives' certificates (Dashboard → Certificates)
+    signature: {
+      data: { type: Buffer, select: false },
+      contentType: { type: String, default: '' },
+      size: { type: Number, default: 0 },
+      version: { type: Number, default: 0 },
+    },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // optional link to a login account
   },
   { timestamps: true }

@@ -1,5 +1,5 @@
 // Dashboard-editable site settings (Setting model): site (timezone), contact details, About page content,
-// membership registration, email.
+// membership registration, email, certificate wording.
 // Reads merge the stored value over DEFAULTS, so a missing document still renders a full page.
 import connectDB from '@/lib/db';
 import Setting from '@/models/Setting';
@@ -70,6 +70,15 @@ export const DEFAULTS = {
     nagad: '',
     rocket: '',
     reference: 'Your name_Student ID (e.g. Rahim_221000101)',
+  },
+  // Wording on student executive certificates (Dashboard → Certificates → Edit wording).
+  // Placeholders: {name} {role} {year} {club} {batch} {department} {studentId}
+  certificate: {
+    title: 'Certificate of Appreciation',
+    organization: siteConfig.name,
+    subtitle: 'Department of Computer Science & Engineering, University of South Asia',
+    intro: 'This certificate is proudly presented to',
+    body: 'for serving as {role} of the {club} Executive Committee {year}. We sincerely appreciate the leadership, dedication and hard work given to the club and its members.',
   },
   // Outgoing email (SMTP). Empty fields fall back to the SMTP_* variables in .env.
   // The password is stored encrypted as passEnc and never sent to the browser.
@@ -222,6 +231,17 @@ const CLEANERS = {
     stats: rows(input.stats, 8, { value: 20, label: 60 }),
     timeline: rows(input.timeline, 40, { year: 10, title: 120, text: 600 }),
   }),
+  certificate: (input) => {
+    const data = {
+      title: str(input.title, 80),
+      organization: str(input.organization, 120),
+      subtitle: str(input.subtitle, 160),
+      intro: str(input.intro, 160),
+      body: str(input.body, 600),
+    };
+    if (!data.title || !data.body) throw new HttpError(400, 'The certificate needs a title and the main text.');
+    return data;
+  },
   membership: (input) => {
     const fee = Number(input.fee);
     if (!Number.isFinite(fee) || fee < 0) throw new HttpError(400, 'Fee must be a positive number.');

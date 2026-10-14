@@ -1,5 +1,5 @@
 import { TbLayoutDashboard } from 'react-icons/tb';
-import { FaGlobe, FaEnvelope, FaNewspaper, FaUsers, FaUserTie, FaUserGraduate, FaIdCard, FaLock, FaInfoCircle, FaUserPlus, FaCog, FaSignInAlt, FaHistory, FaImages, FaMoneyBillWave } from 'react-icons/fa';
+import { FaGlobe, FaEnvelope, FaNewspaper, FaUsers, FaUserTie, FaUserGraduate, FaIdCard, FaLock, FaInfoCircle, FaUserPlus, FaCog, FaSignInAlt, FaHistory, FaImages, FaMoneyBillWave, FaCertificate } from 'react-icons/fa';
 
 // Public site navigation (Navbar + Footer)
 export const mainNav = [
@@ -38,6 +38,7 @@ export const dashboardNav = [
     items: [
       { label: 'News & Events', href: '/dashboard/news', icon: FaNewspaper },
       { label: 'Executives', href: '/dashboard/executives', icon: FaUserTie },
+      { label: 'Certificates', href: '/dashboard/certificates', icon: FaCertificate },
       { label: 'Alumni', href: '/dashboard/alumni', icon: FaUserGraduate },
       { label: 'Gallery', href: '/dashboard/gallery', icon: FaImages },
       { label: 'About Page', href: '/dashboard/about', icon: FaInfoCircle },

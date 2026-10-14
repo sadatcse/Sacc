@@ -68,6 +68,8 @@ export async function recordActivity(req, { session, user, action, entity = '', 
 // Turns an API change (method + path + response data) into an activity entry
 const ENTITIES = [
   [/^\/api\/executives\/[^/]+\/alumni/, 'Alumni entry'],
+  [/^\/api\/executives\/[^/]+\/signature/, 'Signature'],
+  [/^\/api\/certificates/, 'Certificate'],
   [/^\/api\/gallery/, 'Gallery photo'],
   [/^\/api\/news/, 'News post'],
   [/^\/api\/executives/, 'Executive'],
@@ -80,6 +82,7 @@ const ENTITIES = [
   [/^\/api\/settings\/site/, 'Site settings'],
   [/^\/api\/settings\/about/, 'About page'],
   [/^\/api\/settings\/membership/, 'Registration settings'],
+  [/^\/api\/settings\/certificate/, 'Certificate wording'],
   [/^\/api\/settings\/email$/, 'Email settings'],
   [/^\/api\/profile/, 'Own profile'],
   [/^\/api\/contact/, 'Contact message'],

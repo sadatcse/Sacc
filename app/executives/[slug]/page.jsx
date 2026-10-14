@@ -1,8 +1,10 @@
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { FaEnvelope, FaPhoneAlt, FaUniversity, FaIdBadge, FaBuilding } from 'react-icons/fa';
+import Link from 'next/link';
+import { FaEnvelope, FaPhoneAlt, FaUniversity, FaIdBadge, FaBuilding, FaCertificate, FaFilePdf, FaCheckCircle } from 'react-icons/fa';
 import { siteConfig } from '@/config/site';
 import { getLatestYear, getPerson, getPositionsFor } from '@/server/services/executive.service';
+import { getCertificatesFor } from '@/server/services/certificate.service';
 import DarkPageHeader from '@/components/ui/DarkPageHeader';
 import SocialLinks from '@/components/ui/SocialLinks';
 import { initials } from '@/components/executives/ExecutiveCard';
@@ -28,7 +30,7 @@ export default async function Page({ params, searchParams }) {
   const person = await getPerson(slug);
   if (!person) notFound();
 
-  const history = await getPositionsFor(person._id);
+  const [history, certificates] = await Promise.all([getPositionsFor(person._id), getCertificatesFor(person._id)]);
   const [latest] = history;
   const currentYear = await getLatestYear();
   const requestedYear = Number((await searchParams).year);
@@ -136,6 +138,37 @@ export default async function Page({ params, searchParams }) {
               );
             })}
           </Stagger>
+
+          {/* Certificates issued for committee years (Dashboard → Certificates) */}
+          {certificates.length > 0 && (
+            <>
+              <h2 className="mb-6 mt-14 text-xl text-ink md:text-2xl">Certificates</h2>
+              <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {certificates.map((c) => (
+                  <StaggerItem key={c.code}>
+                    <div className="flex h-full flex-col rounded-xl border border-line/10 bg-surface/70 p-5">
+                      <div className="flex items-start gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400"><FaCertificate aria-hidden /></span>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-ink">Executive Committee {c.year}</p>
+                          <p className="text-sm text-muted">{c.role}</p>
+                          <p className="mt-1 font-mono text-xs text-subtle">{c.code}</p>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-3 text-sm font-medium">
+                        <a href={c.pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-orange-600 hover:underline dark:text-orange-400">
+                          <FaFilePdf aria-hidden /> View PDF
+                        </a>
+                        <Link href={c.verifyUrl} className="inline-flex items-center gap-1.5 text-muted hover:text-orange-600 dark:hover:text-orange-400">
+                          <FaCheckCircle aria-hidden /> Verify
+                        </Link>
+                      </div>
+                    </div>
+                  </StaggerItem>
+                ))}
+              </Stagger>
+            </>
+          )}
 
           {/* Stats */}
           <Stagger className="mt-8 grid gap-4 sm:grid-cols-3">

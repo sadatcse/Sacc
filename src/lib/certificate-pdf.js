@@ -1,0 +1,182 @@
+// Server-only: draws a student executive certificate as an A4 landscape PDF (pdf-lib, standard fonts).
+//   const bytes = await certificatePdf({ certificate, template, signatures, verifyUrl, club });
+// `signatures` maps a signer's executive id → { data, contentType } (PNG / JPG). Signers without one get an
+// empty line to sign by hand. The certificate code is printed as a Code 128 barcode.
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { code128 } from '@/lib/barcode';
+import { formatCalendarDate } from '@/lib/utils';
+
+const W = 841.89;
+const H = 595.28;
+const INK = rgb(0.12, 0.15, 0.21);
+const MUTED = rgb(0.4, 0.42, 0.47);
+const ORANGE = rgb(0.976, 0.451, 0.086);
+const RED = rgb(0.863, 0.149, 0.149);
+const GOLD = rgb(0.8, 0.6, 0.25);
+const PAPER = rgb(1, 0.993, 0.975);
+
+// The standard PDF fonts only cover Latin-1: swap typographic marks, drop anything else
+export function pdfSafe(text = '') {
+  return String(text)
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[–—]/g, '-')
+    .replace(/…/g, '...')
+    .replace(/[^\x20-\x7E\xA0-\xFF]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// "{role} of {club}" → values; unknown placeholders stay as written
+export const fillTemplate = (text, vars) => String(text || '').replace(/\{(\w+)\}/g, (m, key) => (key in vars ? vars[key] : m));
+
+function wrap(text, font, size, maxWidth) {
+  const lines = [];
+  let line = '';
+  for (const word of text.split(' ')) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && font.widthOfTextAtSize(next, size) > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else line = next;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+// Largest size ≤ `size` at which the text fits on one line
+function fit(text, font, size, maxWidth, min = 7) {
+  while (size > min && font.widthOfTextAtSize(text, size) > maxWidth) size -= 0.5;
+  return size;
+}
+
+function centered(page, text, { y, font, size, color = INK, x = W / 2, maxWidth = W - 160 }) {
+  const t = pdfSafe(text);
+  if (!t) return;
+  const s = fit(t, font, size, maxWidth);
+  page.drawText(t, { x: x - font.widthOfTextAtSize(t, s) / 2, y, size: s, font, color });
+}
+
+let logoBytes;
+async function readLogo() {
+  if (logoBytes === undefined) logoBytes = await fs.readFile(path.join(process.cwd(), 'public', 'logo.png')).catch(() => null);
+  return logoBytes;
+}
+
+async function embedImage(pdf, { data, contentType } = {}) {
+  if (!data) return null;
+  try {
+    return contentType === 'image/png' ? await pdf.embedPng(data) : await pdf.embedJpg(data);
+  } catch {
+    return null;
+  }
+}
+
+function drawBarcode(page, text, { x, y, height, maxWidth }) {
+  const widths = code128(text);
+  const modules = widths.reduce((a, b) => a + b, 0);
+  const unit = Math.min(1, maxWidth / modules);
+  let cx = x;
+  widths.forEach((w, i) => {
+    if (i % 2 === 0) page.drawRectangle({ x: cx, y, width: w * unit, height, color: INK });
+    cx += w * unit;
+  });
+  return modules * unit;
+}
+
+export async function certificatePdf({ certificate: c, template, signatures = {}, verifyUrl, club }) {
+  const pdf = await PDFDocument.create();
+  pdf.setTitle(pdfSafe(`${template.title} - ${c.recipient.name} (${c.year})`));
+  pdf.setAuthor(pdfSafe(club));
+  pdf.setSubject(pdfSafe(`Certificate ${c.code}`));
+  pdf.setCreator(pdfSafe(club));
+
+  const page = pdf.addPage([W, H]);
+  const font = {
+    sans: await pdf.embedFont(StandardFonts.Helvetica),
+    sansBold: await pdf.embedFont(StandardFonts.HelveticaBold),
+    serif: await pdf.embedFont(StandardFonts.TimesRoman),
+    serifBold: await pdf.embedFont(StandardFonts.TimesRomanBold),
+    serifItalic: await pdf.embedFont(StandardFonts.TimesRomanItalic),
+    serifBoldItalic: await pdf.embedFont(StandardFonts.TimesRomanBoldItalic),
+  };
+
+  // Paper, corner accents, double frame
+  page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: PAPER });
+  page.drawSvgPath('M0 0 L90 0 L0 90 Z', { x: 18, y: H - 18, color: ORANGE });
+  page.drawSvgPath('M0 0 L54 0 L0 54 Z', { x: 18, y: H - 18, color: RED });
+  page.drawSvgPath('M0 0 L-90 0 L0 -90 Z', { x: W - 18, y: 18, color: ORANGE });
+  page.drawSvgPath('M0 0 L-54 0 L0 -54 Z', { x: W - 18, y: 18, color: RED });
+  page.drawRectangle({ x: 18, y: 18, width: W - 36, height: H - 36, borderColor: ORANGE, borderWidth: 3 });
+  page.drawRectangle({ x: 28, y: 28, width: W - 56, height: H - 56, borderColor: GOLD, borderWidth: 0.8 });
+
+  // Header: logo, club, department
+  const logo = await embedImage(pdf, { data: await readLogo(), contentType: 'image/png' });
+  if (logo) {
+    const h = 54;
+    const w = (logo.width / logo.height) * h;
+    page.drawImage(logo, { x: (W - w) / 2, y: H - 98, width: w, height: h });
+  }
+  centered(page, (template.organization || club).toUpperCase(), { y: H - 120, font: font.sansBold, size: 17 });
+  centered(page, template.subtitle, { y: H - 136, font: font.sans, size: 10.5, color: MUTED });
+
+  // Title, recipient
+  centered(page, template.title.toUpperCase(), { y: H - 186, font: font.serifBold, size: 32, color: ORANGE });
+  page.drawLine({ start: { x: W / 2 - 90, y: H - 198 }, end: { x: W / 2 + 90, y: H - 198 }, thickness: 1, color: GOLD });
+  centered(page, template.intro, { y: H - 224, font: font.serifItalic, size: 14, color: MUTED });
+  centered(page, c.recipient.name, { y: H - 268, font: font.serifBoldItalic, size: 38, maxWidth: 600 });
+  page.drawLine({ start: { x: W / 2 - 230, y: H - 280 }, end: { x: W / 2 + 230, y: H - 280 }, thickness: 1, color: ORANGE });
+  const r = c.recipient;
+  const details = [r.studentId && `ID: ${r.studentId}`, r.batch && `Batch: ${r.batch}`, r.department].filter(Boolean).join('   |   ');
+  centered(page, details, { y: H - 296, font: font.sans, size: 10, color: MUTED });
+
+  // Main text
+  const vars = {
+    name: r.name, role: c.role, year: String(c.year), club: template.organization || club,
+    batch: r.batch, department: r.department, studentId: r.studentId,
+  };
+  const body = pdfSafe(fillTemplate(template.body, vars));
+  let size = 14;
+  let lines = wrap(body, font.serif, size, 620);
+  while (lines.length > 3 && size > 10) lines = wrap(body, font.serif, (size -= 1), 620);
+  lines.forEach((line, i) => {
+    page.drawText(line, { x: (W - font.serif.widthOfTextAtSize(line, size)) / 2, y: H - 326 - i * (size + 5), size, font: font.serif, color: INK });
+  });
+
+  // Signatures: the year's top faculty advisors (1–3), spread evenly
+  const signers = c.signers.slice(0, 3);
+  const gap = signers.length === 3 ? 240 : 300;
+  for (const [i, s] of signers.entries()) {
+    const x = W / 2 + (i - (signers.length - 1) / 2) * gap;
+    const lineY = 150;
+    const image = await embedImage(pdf, signatures[String(s.executive)]);
+    if (image) {
+      const scale = Math.min(150 / image.width, 44 / image.height);
+      const w = image.width * scale;
+      page.drawImage(image, { x: x - w / 2, y: lineY + 3, width: w, height: image.height * scale });
+    }
+    page.drawLine({ start: { x: x - 85, y: lineY }, end: { x: x + 85, y: lineY }, thickness: 0.8, color: INK });
+    centered(page, s.name, { x, y: lineY - 13, font: font.sansBold, size: 10.5, maxWidth: 200 });
+    centered(page, s.role, { x, y: lineY - 25, font: font.sans, size: 9, color: ORANGE, maxWidth: 200 });
+    centered(page, s.designation, { x, y: lineY - 36, font: font.sans, size: 8.5, color: MUTED, maxWidth: 200 });
+    centered(page, s.department, { x, y: lineY - 46, font: font.sans, size: 8, color: MUTED, maxWidth: 200 });
+  }
+
+  // Footer: barcode (bottom left) and how to verify (bottom right)
+  const barWidth = drawBarcode(page, c.code, { x: 58, y: 54, height: 28, maxWidth: 170 });
+  centered(page, c.code, { x: 58 + barWidth / 2, y: 42, font: font.sans, size: 8, color: INK });
+  const right = W - 112;
+  const footer = [
+    [c.issuedOn && `Issued on ${formatCalendarDate(c.issuedOn)}`, font.sansBold, 9, INK],
+    [`Certificate ID: ${c.code}`, font.sans, 8.5, INK],
+    [`Verify: ${verifyUrl}`, font.sans, 8, MUTED],
+  ];
+  footer.forEach(([text, f, s, color], i) => {
+    const t = pdfSafe(text);
+    if (t) page.drawText(t, { x: right - f.widthOfTextAtSize(t, s), y: 74 - i * 13, size: s, font: f, color });
+  });
+
+  return pdf.save();
+}
