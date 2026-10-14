@@ -29,7 +29,7 @@ University of South Asia Computer Club site. Next.js 16 (App Router, Turbopack) 
 | Add / change / hide gallery photos | Dashboard → **Gallery** (`/dashboard/gallery`): upload (re-encoded to WebP, stored in MongoDB), **Add from News** (pick post covers / article images), change picture, caption, album, pin, hide, delete; data in `GalleryPhoto` via [src/server/services/gallery.service.js](src/server/services/gallery.service.js). Files in `public/gallery/` are imported automatically the first time; "Import from folder" syncs again (adds new files, brings back deleted folder photos whose file is still there, removes entries whose file is gone) ([src/lib/gallery.js](src/lib/gallery.js)) |
 | Add / rename a news category | [src/data/news-categories.js](src/data/news-categories.js) ("Upcoming Events" is automatic: events not yet held) |
 | Add / edit / approve alumni | Dashboard → **Alumni** (`/dashboard/alumni`); data in MongoDB (`AlumniProfile`) via [src/server/services/alumni.service.js](src/server/services/alumni.service.js) |
-| Student executive certificates (PDF, barcode, signed by the year's top 3 faculty advisors) | Dashboard → **Certificates** (`/dashboard/certificates`): pick year + issue date, Issue / Issue all / Update / Revoke / Delete, upload advisor signatures, edit wording (`Setting` key `certificate`); logic in [src/server/services/certificate.service.js](src/server/services/certificate.service.js), PDF drawing in [src/lib/certificate-pdf.js](src/lib/certificate-pdf.js), barcode in [src/lib/barcode.js](src/lib/barcode.js); shown on `/executives/<slug>`, verified at `/certificates/<code>` |
+| Student executive certificates (PDF with QR code, signed by the year's top 3 faculty advisors) | Dashboard → **Certificates** (`/dashboard/certificates`): pick year + issue date, Issue / Issue all / Update / Revoke / Delete, upload advisor signatures, edit wording (`Setting` key `certificate`); logic in [src/server/services/certificate.service.js](src/server/services/certificate.service.js), PDF drawing + QR in [src/lib/certificate-pdf.js](src/lib/certificate-pdf.js); the holder finds theirs in Account → **Certificates** (matched by login or student ID); the PDF is private (admin / holder), the QR opens the public verify page `/certificates/<code>` |
 | Student → alumni (executive conversion) | Dashboard → Executives → **Convert to Alumni** (older student requests: Dashboard → Alumni → *Requests*); logic in [src/server/services/alumni-request.service.js](src/server/services/alumni-request.service.js) |
 | Edit the About page (mission, vision, numbers, journey) | Dashboard → **About Page** (`/dashboard/about`) → `Setting` key `about` via [src/server/services/settings.service.js](src/server/services/settings.service.js) (defaults there too) |
 | Club members list (batch / gender filters, privacy rule) | Dashboard → **Membership → Club Members** tab (`?tab=members`) and Account → **Club Members** (approved student members) via [src/server/services/members.service.js](src/server/services/members.service.js) — male members never receive female members' phone / email / Facebook |
@@ -100,13 +100,13 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 | `/about` | `app/about/page.jsx`: About page — mission/vision cards, "How it all started" (inauguration 9 March 2024, photo in `public/about/`), count-up numbers, alternating "Our Journey" timeline, join CTA (content from `Setting` `about`) |
 | `/join` | `app/join/page.jsx`: club membership application via `JoinForm` (open/closed banner, fee + payment number with copy, photo upload, soft skills; no university email) → saved as **draft** |
 | `/executives` (`?year=2025`) | `app/executives/page.jsx`: year tabs, Faculty Advisors + Student Executives cards (defaults to newest year) |
-| `/executives/[slug]` (`?year=` sets breadcrumb) | `app/executives/[slug]/page.jsx`: profile, all positions held across years, certificates (View PDF / Verify), stats; unknown slug → 404 |
+| `/executives/[slug]` (`?year=` sets breadcrumb) | `app/executives/[slug]/page.jsx`: profile, all positions held across years, stats; unknown slug → 404 |
 | `/alumni` | `app/alumni/page.jsx`: Alumni Directory (search, filters, sort) via `AlumniDirectory`; header button by visitor (signed out: **Apply for Alumni Membership** → `/register?type=alumni`; alumni: update profile; admin: manage) + "Join the alumni network" section (3 steps) for signed-out visitors; each card opens the profile and shows social links (everyone) + shared email / phone / WhatsApp (signed-in visitors only — contact is not even sent to signed-out browsers) |
 | `/alumni/[slug]` | `app/alumni/[slug]/page.jsx`: alumni profile — header (job, batch, shift, class of, location, mentor badge, links, email if shown), About, Message to students, Experience timeline, Education, Achievements, Quick facts, Skills, mentoring CTA, More alumni; approved entries only (student ID never shown); **members only** — signed-out visitors go to `/login?from=…` and return here after signing in / signing up |
 | `/news` | `app/news/page.jsx`: dark News & Events list (featured post, category chips, type filter, search, load more) via `NewsDirectory`; `?category=<key>` preselects a category |
 | `/news/[slug]` | `app/news/[slug]/page.jsx`: `ArticleView` (blog layout) or `EventView` (details sidebar, guests, seats) by post `type`, plus related posts; unknown slug → 404 |
 | `/gallery` | `app/gallery/page.jsx`: masonry Photo Gallery with album chips + lightbox via `GalleryGrid`; photos from MongoDB (Dashboard → Gallery), pinned first then newest |
-| `/certificates` (`?code=` → redirect) · `/certificates/[code]` | `app/certificates/**`: verify a certificate by its ID (genuine / revoked, recipient, role, year, signers, View / Download PDF, link to profile); noindex |
+| `/certificates` (`?code=` → redirect) · `/certificates/[code]` | `app/certificates/**`: verify a certificate by its ID (genuine / revoked, recipient, role, year, signers — no PDF links); noindex |
 | `/contact` | `app/contact/page.jsx` (uses `ContactForm`): address, fixed phones, **Club executives** card (current President / Vice President with call + WhatsApp, live from the committee), email, map |
 | `/legal/termsofuse` · `/appprivacypolicy` · `/cookiepolicy` · `/refundpolicy` | `app/legal/*/page.jsx` → `LegalPage docKey=…` (tabs between documents, sticky contents list, numbered sections; text in `src/data/legal.js`) |
 
@@ -119,6 +119,7 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 | `/account/security` | `app/account/security/page.jsx` | `PasswordForm` |
 | `/account/members` | `app/account/members/page.jsx` | `MembersDirectory` — approved club members (students who are approved members only) |
 | `/account/payments` | `app/account/payments/page.jsx` | `PaymentsPanel` — membership status (joined / valid until / expired), renew 1–3 years (students), donate (alumni), payment history |
+| `/account/certificates` | `app/account/certificates/page.jsx` | own executive committee certificates (View / Download PDF / verify page) — student & alumni tab |
 | `/account/alumni` | `app/account/alumni/page.jsx` | redirects to `/account` (the student "Become Alumni" request was removed) |
 
 ### Admin dashboard (role `admin`)
@@ -162,7 +163,8 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 | `/api/alumni-requests` · `/[id]` | GET · PATCH | admin | Requests sent before the student form was removed: list · `{ status: approved\|rejected, adminNote }` (approve = role → alumni + AlumniProfile; email) |
 | `/api/executives/[id]/signature` | GET, PUT (multipart `signature`, PNG / JPG ≤ 1 MB), DELETE | admin | Faculty advisor's signature image for certificates |
 | `/api/certificates` · `/[id]` | GET (`?year=`), POST · PATCH, DELETE | admin | Board for a year (signers, student executives + certificates, wording) / issue `{ year, executives?, issuedOn?, refresh? }` · `{ revoked, issuedOn }` |
-| `/api/certificates/pdf/[code]` | GET | public | Certificate PDF (`?download=1` = attachment); 410 when revoked |
+| `/api/certificates/pdf/[code]` | GET | admin or the holder | Certificate PDF (`?download=1` = attachment); 403 for anyone else, 410 when revoked |
+| `/api/certificates/mine` | GET | signed in | Own valid certificates |
 | `/api/executives/[id]/alumni` | POST | admin | `{ graduationYear?, jobTitle?, company?, hideProfile? }` → creates / links the person's alumni entry (photo, links, latest position as badge; linked student login becomes alumni) |
 | `/api/gallery` · `/[id]` · `/[id]/image` | GET (public; `?all=1` admin), POST (multipart) · PATCH, DELETE · PUT (multipart) | public read / admin write | Gallery photos: upload one photo per request (≤10 MB, re-encoded), edit `{ caption, album, featured, hidden }`, change picture |
 | `/api/gallery/image/[id]/[v]` | GET | public | Stored image bytes (WebP, cached forever — the version changes when the picture is replaced) |
@@ -299,8 +301,8 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 | `controllers/members.controller.js` | `list` |
 | `services/alumni-request.service.js` | `listRequests`, `countPendingRequests`, `reviewRequest` (approve converts the account), `convertExecutive`, `alumniIdsForExecutives` — one person = one AlumniProfile (matches by account or student ID, fills only empty fields) |
 | `controllers/alumni-request.controller.js` | `list`, `review`, `convertExecutive` |
-| `services/certificate.service.js` | `getBoard(year)`, `issueCertificates` (one per person per year; signers = top 3 advisors by order, fewer if fewer), `updateCertificate`, `deleteCertificate`, `setSignature` / `removeSignature` / `getSignature`, `getCertificateByCode`, `getCertificatesFor(executiveId)`, `renderPdf(code)` |
-| `controllers/certificate.controller.js` | `board`, `issue`, `update`, `remove`, `pdf`, `signature`, `setSignature`, `removeSignature` |
+| `services/certificate.service.js` | `getBoard(year)`, `issueCertificates` (one per person per year; signers = top 3 advisors by order, fewer if fewer), `updateCertificate`, `deleteCertificate`, `setSignature` / `removeSignature` / `getSignature`, `getCertificateByCode`, `getCertificatesForUser(userId)` (executive records linked to the login or with the same student ID), `renderPdf(code, session)` (admin / holder only) |
+| `controllers/certificate.controller.js` | `board`, `issue`, `update`, `remove`, `pdf`, `mine`, `signature`, `setSignature`, `removeSignature` |
 | `services/alumni.service.js` | `getApprovedAlumni` (directory shape), `getAlumniBySlug` (public profile, private fields stripped), `getRelatedAlumni`, `ensureAlumniSlug`; `listAlumni`, `createAlumni`, `updateAlumni`, `deleteAlumni`, `countAlumni` |
 
 ### `src/lib/` — shared utilities
@@ -312,8 +314,7 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 | `rate-limit.js` | `isRateLimited(key, { limit, windowMs })` (in-memory) |
 | `dedupe-guard.js` | `findRecentDuplicate(Model, query, windowMinutes)` |
 | `secret-box.js` | `encryptSecret`, `decryptSecret` (AES-256-GCM, key from `JWT_SECRET`) |
-| `barcode.js` | `code128(text)` → bar/space module widths (Code 128 set B) |
-| `certificate-pdf.js` | server-only `certificatePdf({ certificate, template, signatures, verifyUrl, club })` (pdf-lib, A4 landscape), `pdfSafe`, `fillTemplate` |
+| `certificate-pdf.js` | server-only `certificatePdf({ certificate, template, signatures, verifyUrl, club })` (pdf-lib + qrcode, A4 landscape, QR → verify page), `pdfSafe`, `fillTemplate` |
 | `gallery.js` | `scanGalleryFolder()` (server-only: scans `public/gallery`, image dimensions, albums, captions — used for importing), `imageSize(buffer)`, `DEFAULT_ALBUM` |
 | `news-utils.js` | `readingTime`, `eventStatus`, `toCard` (client-safe card data), `todayISO` (site timezone) |
 | `news-format.js` | `textToBlocks` / `blocksToText` (editor text ⇄ body blocks), `textToGuests` / `guestsToText` |
@@ -332,7 +333,7 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 | `StudentProfile` | user (unique), studentId, department, batch, semester, section, photo, bio, skills[], links |
 | `AlumniProfile` | user? (unique, sparse), slug (unique, auto from name in a pre-validate hook), name, photo, studentId, department, degree, batch, shift, graduationYear, jobTitle, company, industry, location, country, bio, quote, skills[], achievements[], experience[{title, company, location, start, end, description}], education[{degree, institution, start, end}], links, openToMentor, showEmail, phone, showPhone (email / phone shown only to signed-in members, and only when shared), featured, approved, spotlight (featured-alumni slideshow), hideProfile (the alumnus' own "keep me off the website") |
 | `Executive` | slug (unique), name, kind `student\|faculty`, studentId, batch, department, shift `day\|evening`, designation, employeeId, school, office, officePhone (public faculty details), phone + personalEmail (`select:false`, admin-only), photo, bio, links (links.email = public official email), signature {data (select:false), contentType, size, version} (faculty, printed on certificates), user? — required: student → ID, batch, department, shift; faculty → department, designation (enforced in `executive.service.js`) |
-| `Certificate` | code (unique, e.g. `SACC-2026-7KQ4MZ`, in the barcode), executive, year (unique per executive+year), role, recipient snapshot (name, studentId, batch, department, shift), signers [{executive, name, role, designation, department}], issuedOn, issuedBy, revoked |
+| `Certificate` | code (unique, e.g. `SACC-2026-7KQ4MZ`; its QR opens the verify page), executive, year (unique per executive+year), role, recipient snapshot (name, studentId, batch, department, shift), signers [{executive, name, role, designation, department}], issuedOn, issuedBy, revoked |
 | `AlumniRequest` | user, name, email, studentId, department, batch, shift, degree, graduationYear, jobTitle, company, location, note, hideProfile, status `pending\|approved\|rejected`, adminNote, reviewedBy, reviewedAt |
 | `CommitteePosition` | executive → Executive, year, type `advisor\|executive`, role, order (unique per executive+year+role) |
 | `Post` | slug (unique), type `article\|event`, status `published\|draft`, category, title, excerpt, cover, date `YYYY-MM-DD`, author{name,role,verified}, tags[], featured, body[blocks], event{…}, createdBy |

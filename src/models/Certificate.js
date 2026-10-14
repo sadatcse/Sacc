@@ -25,7 +25,7 @@ const SignerSchema = new mongoose.Schema(
 
 const CertificateSchema = new mongoose.Schema(
   {
-    code: { type: String, required: true, unique: true, uppercase: true, trim: true }, // e.g. SACC-2026-7KQ4MZ (in the barcode)
+    code: { type: String, required: true, unique: true, uppercase: true, trim: true }, // e.g. SACC-2026-7KQ4MZ (printed on it; its QR code opens /certificates/<code>)
     executive: { type: mongoose.Schema.Types.ObjectId, ref: 'Executive', required: true, index: true },
     year: { type: Number, required: true, index: true },
     role: { type: String, trim: true, default: '' }, // every role held that year, joined with " & "

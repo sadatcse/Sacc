@@ -7,14 +7,14 @@ export const metadata = {
   description: 'Check that an executive committee certificate was issued by the club.',
 };
 
-// /certificates?code=SACC-2026-7KQ4MZ → /certificates/SACC-2026-7KQ4MZ (the barcode holds the same code)
+// /certificates?code=SACC-2026-7KQ4MZ → /certificates/SACC-2026-7KQ4MZ (the QR code on the certificate opens the same page)
 export default async function Page({ searchParams }) {
   const code = String((await searchParams).code || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
   if (code) redirect(`/certificates/${code}`);
 
   return (
     <div className="min-h-[70vh] bg-canvas text-body">
-      <DarkPageHeader title="Verify a" accent="Certificate" subtitle="Enter the Certificate ID printed under the barcode, or scan the barcode into the box." breadcrumbs={[{ label: 'Certificates' }]} />
+      <DarkPageHeader title="Verify a" accent="Certificate" subtitle="Scan the QR code on the certificate, or enter the Certificate ID printed on it." breadcrumbs={[{ label: 'Certificates' }]} />
       <div className="container max-w-xl py-12">
         <form method="get" className="flex gap-2 rounded-2xl border border-line/10 bg-surface p-3">
           <label htmlFor="code" className="sr-only">Certificate ID</label>

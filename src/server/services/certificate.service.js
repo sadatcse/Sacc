@@ -1,11 +1,14 @@
 // Certificates for student executives (Dashboard → Certificates), one per person per committee year.
 // Signed by that year's top 3 faculty advisors (lowest committee `order` first) — fewer if fewer serve.
-// Each certificate has a code (SACC-2026-7KQ4MZ) printed as a barcode; /certificates/<code> verifies it.
+// Each certificate has a code (SACC-2026-7KQ4MZ) and a QR code that opens /certificates/<code> (public verify page).
+// The PDF itself is private: admins and the person it belongs to (Account → Certificates).
 import crypto from 'node:crypto';
 import connectDB from '@/lib/db';
 import Certificate from '@/models/Certificate';
 import Executive from '@/models/Executive';
 import CommitteePosition from '@/models/CommitteePosition';
+import StudentProfile from '@/models/StudentProfile';
+import AlumniProfile from '@/models/AlumniProfile';
 import { siteConfig } from '@/config/site';
 import { certificatePdf, pdfSafe } from '@/lib/certificate-pdf';
 import { todayInTimeZone } from '@/lib/timezone';
@@ -214,18 +217,36 @@ export async function getCertificateByCode(code) {
   return toClient({ ...rest, executive: executive?._id, slug: executive?.slug || '', photo: executive?.photo || '' });
 }
 
-// Valid certificates of one person, newest first (executive profile page)
-export async function getCertificatesFor(executiveId) {
+// Executive records that belong to a signed-in user: linked to the login, or with the same student ID
+// as the user's student / alumni profile
+async function executiveIdsForUser(userId) {
+  const profiles = await Promise.all([
+    StudentProfile.findOne({ user: userId }).select('studentId').lean(),
+    AlumniProfile.findOne({ user: userId }).select('studentId').lean(),
+  ]);
+  const studentIds = [...new Set(profiles.map((p) => p?.studentId?.trim()).filter(Boolean))];
+  const people = await Executive.find({ $or: [{ user: userId }, ...(studentIds.length ? [{ studentId: { $in: studentIds } }] : [])] }).select('_id').lean();
+  return people.map((p) => p._id);
+}
+
+// Account → Certificates: the signed-in user's valid certificates, newest first
+export async function getCertificatesForUser(userId) {
   await connectDB();
-  const rows = await Certificate.find({ executive: executiveId, revoked: false }).sort({ year: -1 }).select('code year role issuedOn').lean();
+  const ids = await executiveIdsForUser(userId);
+  if (!ids.length) return [];
+  const rows = await Certificate.find({ executive: { $in: ids }, revoked: false }).sort({ year: -1 }).select('code year role issuedOn recipient.name').lean();
   return rows.map(toClient);
 }
 
-// PDF bytes + a file name; revoked certificates have no PDF
-export async function renderPdf(code) {
+// PDF bytes + a file name — admins, or the person the certificate belongs to. Revoked certificates have no PDF.
+export async function renderPdf(code, session) {
   await connectDB();
   const cert = await Certificate.findOne({ code: cleanCode(code) }).lean();
   if (!cert) throw notFound('Certificate');
+  if (session?.role !== 'admin') {
+    const own = await executiveIdsForUser(session?._id);
+    if (!own.some((id) => String(id) === String(cert.executive))) throw new HttpError(403, 'Only the certificate holder can open this certificate.');
+  }
   if (cert.revoked) throw new HttpError(410, 'This certificate has been revoked.');
   const ids = cert.signers.map((s) => s.executive).filter(Boolean);
   const [people, template] = await Promise.all([

@@ -78,6 +78,7 @@ export const accountNav = [
   { label: 'Password', href: '/account/security', icon: FaLock },
   { label: 'Club Members', href: '/account/members', icon: FaUsers, roles: ['student'] },
   { label: 'Payments', href: '/account/payments', icon: FaMoneyBillWave, roles: ['student', 'alumni'] },
+  { label: 'Certificates', href: '/account/certificates', icon: FaCertificate, roles: ['student', 'alumni'] },
 ];
 
 // Routes where the public Navbar/Footer are hidden

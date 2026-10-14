@@ -29,9 +29,9 @@ export async function remove({ params }) {
   return ok(await certificates.deleteCertificate(params.id), 'Certificate deleted.');
 }
 
-// Public: the PDF (inline; ?download=1 → save as file)
-export async function pdf({ params, query }) {
-  const { bytes, fileName } = await certificates.renderPdf(params.code);
+// Admin or the certificate holder: the PDF (inline; ?download=1 → save as file)
+export async function pdf({ params, query, session }) {
+  const { bytes, fileName } = await certificates.renderPdf(params.code, session);
   return new NextResponse(bytes, {
     headers: {
       'Content-Type': 'application/pdf',
@@ -40,6 +40,11 @@ export async function pdf({ params, query }) {
       'X-Content-Type-Options': 'nosniff',
     },
   });
+}
+
+// Signed in: own certificates (Account → Certificates)
+export async function mine({ session }) {
+  return ok(await certificates.getCertificatesForUser(session._id));
 }
 
 // ---- faculty signatures (admin) ----

@@ -1,11 +1,11 @@
 // Server-only: draws a student executive certificate as an A4 landscape PDF (pdf-lib, standard fonts).
 //   const bytes = await certificatePdf({ certificate, template, signatures, verifyUrl, club });
 // `signatures` maps a signer's executive id → { data, contentType } (PNG / JPG). Signers without one get an
-// empty line to sign by hand. The certificate code is printed as a Code 128 barcode.
+// empty line to sign by hand. A QR code (bottom left) opens the verify page for the certificate.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { code128 } from '@/lib/barcode';
+import QRCode from 'qrcode';
 import { formatCalendarDate } from '@/lib/utils';
 
 const W = 841.89;
@@ -74,16 +74,16 @@ async function embedImage(pdf, { data, contentType } = {}) {
   }
 }
 
-function drawBarcode(page, text, { x, y, height, maxWidth }) {
-  const widths = code128(text);
-  const modules = widths.reduce((a, b) => a + b, 0);
-  const unit = Math.min(1, maxWidth / modules);
-  let cx = x;
-  widths.forEach((w, i) => {
-    if (i % 2 === 0) page.drawRectangle({ x: cx, y, width: w * unit, height, color: INK });
-    cx += w * unit;
-  });
-  return modules * unit;
+// QR code as vector squares (sharp at any zoom); (x, y) = bottom-left corner
+function drawQr(page, text, { x, y, size }) {
+  const { modules } = QRCode.create(text, { errorCorrectionLevel: 'M' });
+  const unit = size / modules.size;
+  page.drawRectangle({ x: x - 3, y: y - 3, width: size + 6, height: size + 6, color: rgb(1, 1, 1) });
+  for (let row = 0; row < modules.size; row++) {
+    for (let col = 0; col < modules.size; col++) {
+      if (modules.get(row, col)) page.drawRectangle({ x: x + col * unit, y: y + size - (row + 1) * unit, width: unit + 0.05, height: unit + 0.05, color: INK });
+    }
+  }
 }
 
 export async function certificatePdf({ certificate: c, template, signatures = {}, verifyUrl, club }) {
@@ -164,18 +164,18 @@ export async function certificatePdf({ certificate: c, template, signatures = {}
     centered(page, s.department, { x, y: lineY - 46, font: font.sans, size: 8, color: MUTED, maxWidth: 200 });
   }
 
-  // Footer: barcode (bottom left) and how to verify (bottom right)
-  const barWidth = drawBarcode(page, c.code, { x: 58, y: 54, height: 28, maxWidth: 170 });
-  centered(page, c.code, { x: 58 + barWidth / 2, y: 42, font: font.sans, size: 8, color: INK });
+  // Footer: QR code → verify page (bottom left), issue date and certificate ID (bottom right)
+  const qrSize = 62;
+  drawQr(page, verifyUrl, { x: 52, y: 48, size: qrSize });
+  centered(page, 'Scan to verify', { x: 52 + qrSize / 2, y: 36, font: font.sans, size: 7.5, color: MUTED });
   const right = W - 112;
   const footer = [
     [c.issuedOn && `Issued on ${formatCalendarDate(c.issuedOn)}`, font.sansBold, 9, INK],
     [`Certificate ID: ${c.code}`, font.sans, 8.5, INK],
-    [`Verify: ${verifyUrl}`, font.sans, 8, MUTED],
   ];
   footer.forEach(([text, f, s, color], i) => {
     const t = pdfSafe(text);
-    if (t) page.drawText(t, { x: right - f.widthOfTextAtSize(t, s), y: 74 - i * 13, size: s, font: f, color });
+    if (t) page.drawText(t, { x: right - f.widthOfTextAtSize(t, s), y: 66 - i * 13, size: s, font: f, color });
   });
 
   return pdf.save();

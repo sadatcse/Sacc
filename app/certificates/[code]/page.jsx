@@ -1,14 +1,14 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { FaCheckCircle, FaTimesCircle, FaFilePdf, FaDownload, FaUser } from 'react-icons/fa';
+import { FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 import { getCertificateByCode } from '@/server/services/certificate.service';
 import { formatCalendarDate } from '@/lib/utils';
 import DarkPageHeader from '@/components/ui/DarkPageHeader';
-import Button from '@/components/ui/Button';
 import { initials } from '@/components/executives/ExecutiveCard';
 
-// Certificate verification — the code and barcode on every certificate point here
+// Certificate verification (public) — the QR code on every certificate opens this page. No PDF links here:
+// only admins and the certificate owner can open the PDF.
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }) {
@@ -89,18 +89,6 @@ export default async function Page({ params }) {
               </ul>
             </>
           )}
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            {valid && (
-              <>
-                <Button href={cert.pdfUrl} target="_blank" variant="brand" prefetch={false}><FaFilePdf /> View certificate</Button>
-                <Button href={`${cert.pdfUrl}?download=1`} variant="secondary" prefetch={false}><FaDownload /> Download PDF</Button>
-              </>
-            )}
-            {cert.slug && (
-              <Button href={`/executives/${cert.slug}`} variant="secondary"><FaUser /> View profile</Button>
-            )}
-          </div>
         </div>
 
         <p className="mt-6 text-center text-xs text-subtle">
