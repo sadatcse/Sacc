@@ -3,9 +3,10 @@
 import Payment from '@/models/Payment';
 import MembershipApplication from '@/models/MembershipApplication';
 import User from '@/models/User';
-import { MOBILE_PAYMENT_METHODS, PAYMENT_METHODS, PAYMENT_STATUSES, PAYMENT_TYPES, RENEW_YEARS } from '@/config/membership';
+import { PAYMENT_STATUSES, PAYMENT_TYPES, RENEW_YEARS } from '@/config/membership';
+import { methodsFor, missingTransferFields } from '@/config/payment-methods';
 import { addYears, membershipPeriod } from '@/lib/membership';
-import { getSetting } from '@/server/services/settings.service';
+import { getPaymentMethods, getSetting } from '@/server/services/settings.service';
 import { HttpError } from '@/server/http';
 import { assertId, notFound, str, toPlain } from '@/server/validate';
 import { escapeRegex } from '@/lib/utils';
@@ -25,19 +26,20 @@ const payerFromApplication = (app) => ({
   batch: app.batch,
 });
 
-// Payment method + sender number + transaction ID, checked the same way as the Join form
-function cleanTransfer(input) {
+// Payment method + sender number / bank + transaction ID / cheque number (Dashboard → Payment Methods).
+// Members and alumni may only use methods switched on for that purpose; admins may record any configured method.
+async function cleanTransfer(input, { purpose, admin = false } = {}) {
   const data = {
-    method: str(input.method, 20),
-    paidFrom: str(input.paidFrom, 30),
+    method: str(input.method, 30),
+    paidFrom: str(input.paidFrom, 60),
     transactionId: str(input.transactionId, 60),
     note: str(input.note, 1000),
   };
-  if (!PAYMENT_METHODS.some((m) => m.value === data.method)) throw new HttpError(400, 'Choose a payment method.');
-  if (MOBILE_PAYMENT_METHODS.includes(data.method)) {
-    const missing = [!data.paidFrom && 'Number you paid from', !data.transactionId && 'Transaction ID'].filter(Boolean);
-    if (missing.length) throw new HttpError(400, `Please fill in: ${missing.join(', ')}.`);
-  }
+  const methods = await getPaymentMethods();
+  const method = (admin ? methods : methodsFor(methods, purpose)).find((m) => m.key === data.method);
+  if (!method) throw new HttpError(400, 'Choose one of the payment methods shown.');
+  const missing = missingTransferFields(method, data);
+  if (missing.length) throw new HttpError(400, `Please fill in: ${missing.join(', ')}.`);
   return data;
 }
 
@@ -146,7 +148,7 @@ export async function listPayments({ type, status, search, application } = {}) {
 export async function createPayment(input = {}, { userId } = {}) {
   const type = str(input.type, 20);
   if (!['renewal', 'donation'].includes(type)) throw new HttpError(400, 'Record a renewal or a donation (joining fees come from approved applications).');
-  const transfer = cleanTransfer(input);
+  const transfer = await cleanTransfer(input, { admin: true });
   await assertNewTransaction(transfer.transactionId);
   const paidAt = input.paidAt ? new Date(input.paidAt) : new Date();
   if (Number.isNaN(paidAt.getTime())) throw new HttpError(400, 'Invalid payment date.');
@@ -228,9 +230,10 @@ async function ownApplication(userId) {
 export async function myPayments(session) {
   const app = session.role === 'student' ? await ownApplication(session._id) : null;
   if (app) await ensureMembershipPayment(app);
-  const [rows, settings] = await Promise.all([
+  const [rows, settings, methods] = await Promise.all([
     Payment.find({ user: session._id }).sort({ paidAt: -1, createdAt: -1 }).limit(200).lean(),
     getSetting('membership'),
+    getPaymentMethods(),
   ]);
   const period = app && membershipPeriod(app);
   return toPlain({
@@ -240,7 +243,7 @@ export async function myPayments(session) {
       : null,
     payments: rows.map(({ adminNote: _note, ...p }) => p),
     pendingRenewal: rows.some((p) => p.type === 'renewal' && p.status === 'pending'),
-    pay: { renewFee: settings.renewFee, bkash: settings.bkash, nagad: settings.nagad, rocket: settings.rocket, reference: settings.reference },
+    pay: { renewFee: settings.renewFee, reference: settings.reference, methods: methodsFor(methods) },
   });
 }
 
@@ -248,7 +251,8 @@ export async function myPayments(session) {
 //    or { type: 'donation', amount, method, paidFrom, transactionId, note } (alumni)
 export async function submitOwnPayment(session, input = {}) {
   const type = str(input.type, 20);
-  const transfer = cleanTransfer(input);
+  if (!['renewal', 'donation'].includes(type)) throw new HttpError(400, 'Unknown payment type.');
+  const transfer = await cleanTransfer(input, { purpose: type });
   await assertNewTransaction(transfer.transactionId);
   const user = await User.findById(session._id).select('name email phone').lean();
   const data = { type, status: 'pending', user: session._id, ...transfer, name: user?.name || '', email: user?.email || '', phone: user?.phone || '' };

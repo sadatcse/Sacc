@@ -3,13 +3,15 @@ import { useState } from 'react';
 import Link from 'next/link';
 import {
   FaUser, FaEnvelope, FaPhoneAlt, FaIdCard, FaUniversity, FaUsers, FaSun, FaTshirt, FaTint, FaFacebookF,
-  FaCamera, FaCreditCard, FaPaperPlane, FaCheckCircle, FaCopy, FaCheck, FaExclamationTriangle, FaLock,
+  FaCamera, FaCreditCard, FaPaperPlane, FaCheckCircle, FaExclamationTriangle, FaLock,
 } from 'react-icons/fa';
 import { api, apiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import {
-  BLOOD_GROUPS, GENDER_OPTIONS, MOBILE_PAYMENT_METHODS, PAYMENT_METHODS, PHOTO_MAX_BYTES, PHOTO_TYPES, SHIFT_OPTIONS, SOFT_SKILLS, TSHIRT_SIZES,
+  BLOOD_GROUPS, GENDER_OPTIONS, PHOTO_MAX_BYTES, PHOTO_TYPES, SHIFT_OPTIONS, SOFT_SKILLS, TSHIRT_SIZES,
 } from '@/config/membership';
+import { kindOf } from '@/config/payment-methods';
+import PayTo from '@/components/payments/PayTo';
 
 const inputClass =
   'h-11 w-full rounded-lg border border-line/10 bg-canvas/60 px-3 text-sm text-ink outline-none transition-colors placeholder:text-faint hover:border-orange-500/50 focus:border-orange-500 disabled:cursor-not-allowed disabled:opacity-50 [&>option]:bg-surface';
@@ -40,33 +42,16 @@ function SelectInput({ name, placeholder, options, ...props }) {
   );
 }
 
-function CopyButton({ text }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard unavailable */
-    }
-  };
-  return (
-    <button type="button" onClick={copy} className="flex h-11 shrink-0 items-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-orange-500 px-4 text-sm font-semibold text-white">
-      {copied ? <FaCheck aria-hidden /> : <FaCopy aria-hidden />} {copied ? 'Copied' : 'Copy'}
-    </button>
-  );
-}
-
 // Club membership application (/join). Submits multipart data to POST /api/membership → saved as a draft.
-export default function JoinForm({ settings }) {
+export default function JoinForm({ settings, methods = [] }) {
   const [payment, setPayment] = useState('');
   const [photoPreview, setPhotoPreview] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(null);
   const closed = !settings.open;
-  const receivingNumber = MOBILE_PAYMENT_METHODS.includes(payment) ? settings[payment] : '';
+  const method = methods.find((m) => m.key === payment);
+  const kind = method && kindOf(method);
 
   const onPhoto = (e) => {
     const file = e.target.files?.[0];
@@ -195,33 +180,46 @@ export default function JoinForm({ settings }) {
 
         <section>
           <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-orange-600 dark:text-orange-400">Membership fee</h2>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Payment Method" icon={FaCreditCard} name="paymentMethod">
-              <SelectInput name="paymentMethod" placeholder="Select payment method" options={PAYMENT_METHODS} onChange={(e) => setPayment(e.target.value)} />
-            </Field>
-            <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-4 text-sm">
-              <p className="text-body">Amount: <span className="font-bold text-orange-600 dark:text-orange-400">{settings.fee} BDT</span></p>
-              {settings.reference && <p className="mt-1 text-xs text-muted">Reference: {settings.reference}</p>}
-              {payment === 'cash' && <p className="mt-1 text-xs text-muted">Pay at the club desk — keep your money receipt.</p>}
-            </div>
-          </div>
-
-          {MOBILE_PAYMENT_METHODS.includes(payment) && (
-            <div className="mt-5 grid gap-5 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <span className="mb-1.5 block text-sm font-medium text-ink-2">Send money to this {PAYMENT_METHODS.find((m) => m.value === payment).label} number</span>
-                {receivingNumber ? (
-                  <div className="flex gap-2">
-                    <input readOnly value={receivingNumber} className={cn(inputClass, 'font-mono')} aria-label="Club payment number" />
-                    <CopyButton text={receivingNumber} />
-                  </div>
-                ) : (
-                  <p className="text-sm text-amber-700 dark:text-amber-300">The club hasn&apos;t published a number for this method yet — please choose another.</p>
-                )}
+          {!methods.length ? (
+            <p className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200">
+              <FaExclamationTriangle className="mr-2 inline" aria-hidden />
+              Online payment details aren&apos;t published yet — please contact the club before applying.
+            </p>
+          ) : (
+            <>
+              <p className="mb-3 text-sm text-body">
+                Amount: <span className="font-bold text-orange-600 dark:text-orange-400">{settings.fee} BDT</span>
+                {settings.reference && <span className="ml-2 text-xs text-muted">· Reference: {settings.reference}</span>}
+              </p>
+              {/* Pick a method: one tile per method switched on for joining fees */}
+              <div role="radiogroup" aria-label="Payment method" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {methods.map((m) => (
+                  <label
+                    key={m.key}
+                    className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-line/10 bg-canvas/60 px-3 py-3 text-sm font-medium text-body transition-colors hover:border-orange-500/50 has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10 has-[:checked]:text-ink"
+                  >
+                    <input type="radio" name="paymentMethod" value={m.key} required checked={payment === m.key} onChange={() => setPayment(m.key)} className="h-4 w-4 accent-orange-500" />
+                    {m.label}
+                  </label>
+                ))}
               </div>
-              <Field label="Number you paid from" icon={FaPhoneAlt} name="paymentFrom"><TextInput name="paymentFrom" type="tel" placeholder="01XXXXXXXXX" /></Field>
-              <Field label="Transaction ID" icon={FaCreditCard} name="transactionId"><TextInput name="transactionId" placeholder="e.g. 9BX4K2L7QP" className={cn(inputClass, 'font-mono uppercase')} /></Field>
-            </div>
+
+              {method && (
+                <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                  <PayTo method={method} amount={`${settings.fee} BDT`} reference={settings.reference} className="sm:col-span-2" />
+                  {kind.from && (
+                    <Field label={kind.from.label} icon={FaPhoneAlt} name="paymentFrom" optional={!kind.from.required}>
+                      <TextInput key={`from-${method.key}`} name="paymentFrom" optional={!kind.from.required} type={method.kind === 'mobile' ? 'tel' : 'text'} placeholder={kind.from.placeholder} />
+                    </Field>
+                  )}
+                  {kind.ref && (
+                    <Field label={kind.ref.label} icon={FaCreditCard} name="transactionId" optional={!kind.ref.required}>
+                      <TextInput key={`ref-${method.key}`} name="transactionId" optional={!kind.ref.required} placeholder={kind.ref.placeholder} className={cn(inputClass, 'font-mono uppercase')} />
+                    </Field>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </section>
 

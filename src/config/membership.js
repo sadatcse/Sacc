@@ -10,14 +10,7 @@ export const SHIFT_OPTIONS = [
   { value: 'evening', label: 'Evening' },
 ];
 
-// Payment methods; the club's receiving number for each comes from the dashboard settings
-export const PAYMENT_METHODS = [
-  { value: 'bkash', label: 'bKash' },
-  { value: 'nagad', label: 'Nagad' },
-  { value: 'rocket', label: 'Rocket' },
-  { value: 'cash', label: 'Cash (pay at the club desk)' },
-];
-export const MOBILE_PAYMENT_METHODS = ['bkash', 'nagad', 'rocket'];
+// Payment methods (bKash, Nagad, cash, cheque…) are set in Dashboard → Payment Methods — see src/config/payment-methods.js
 
 export const SOFT_SKILLS = [
   'Leadership', 'Communication', 'Team Work', 'Problem Solving',

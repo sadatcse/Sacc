@@ -129,10 +129,7 @@ export default function Footer({ contact: saved }) {
         <Container className="flex flex-col items-center gap-3 py-5 text-center text-xs text-subtle lg:grid lg:grid-cols-[1fr_auto_1fr]">
           <p className="lg:justify-self-start lg:text-left">© {new Date().getFullYear()} {siteConfig.name}. All rights reserved.</p>
           <p className="whitespace-nowrap">
-            Design &amp; development by{' '}
-            <a href={siteConfig.developer.url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 font-semibold text-body ${linkHover}`}>
-              <FaGithub aria-hidden /> {siteConfig.developer.name}
-            </a>
+            Design &amp; development by <span className="font-semibold text-body">{siteConfig.developer.name}</span>
           </p>
           {visitors && (
             <ul className="flex flex-wrap justify-center gap-2 lg:justify-self-end" aria-label="Visitors">

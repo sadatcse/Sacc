@@ -8,6 +8,7 @@ import { str, toPlain } from '@/server/validate';
 import { DEFAULT_TIME_ZONE, isValidTimeZone } from '@/lib/timezone';
 import { encryptSecret } from '@/lib/secret-box';
 import { siteConfig } from '@/config/site';
+import { DEFAULT_PAYMENT_METHODS, KIND, MOBILE_ACCOUNT_TYPES, PAYMENT_PURPOSES } from '@/config/payment-methods';
 
 export const DEFAULTS = {
   site: {
@@ -66,10 +67,11 @@ export const DEFAULTS = {
     notice: 'Registration is open now.',
     fee: 500,
     renewFee: 300, // per year — Account → Payments renews for 1–3 years
-    bkash: '',
-    nagad: '',
-    rocket: '',
     reference: 'Your name_Student ID (e.g. Rahim_221000101)',
+  },
+  // Payment methods accepted for joining fees, renewals and donations (Dashboard → Payment Methods)
+  payments: {
+    methods: DEFAULT_PAYMENT_METHODS,
   },
   // Wording on student executive certificates (Dashboard → Certificates → Edit wording).
   // Placeholders: {name} {role} {year} {club} {batch} {department} {studentId}
@@ -132,7 +134,14 @@ export async function getSetting(key) {
   const merged = { ...DEFAULTS[key], ...(doc?.value || {}) };
   if (key === 'email') merged.notify = { ...DEFAULTS.email.notify, ...(doc?.value?.notify || {}) };
   if (key === 'contact') merged.social = { ...DEFAULTS.contact.social, ...(doc?.value?.social || {}) };
+  if (key === 'payments' && !doc) merged.methods = await legacyPaymentMethods();
   return toPlain(merged);
+}
+
+// Before Dashboard → Payment Methods existed, the bKash / Nagad / Rocket numbers lived in the membership setting
+async function legacyPaymentMethods() {
+  const old = (await Setting.findOne({ key: 'membership' }).lean())?.value || {};
+  return DEFAULT_PAYMENT_METHODS.map((m) => (m.kind === 'mobile' && old[m.key] ? { ...m, account: String(old[m.key]) } : m));
 }
 
 const rows = (value, max, shape) =>
@@ -242,6 +251,36 @@ const CLEANERS = {
     if (!data.title || !data.body) throw new HttpError(400, 'The certificate needs a title and the main text.');
     return data;
   },
+  payments: (input) => {
+    const list = Array.isArray(input.methods) ? input.methods.slice(0, 20) : [];
+    const purposes = PAYMENT_PURPOSES.map((p) => p.value);
+    const keys = new Set();
+    const methods = list.map((m) => {
+      const label = str(m?.label, 40);
+      if (!label) throw new HttpError(400, 'Every payment method needs a name.');
+      const kind = KIND[m.kind] ? m.kind : 'other';
+      // The key is stored on payments, so it never changes once made (new methods get one from the name)
+      let key = str(m.key, 30).toLowerCase().replace(/[^a-z0-9-]/g, '') || label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'method';
+      for (let i = 2; keys.has(key); i++) key = `${key.replace(/-\d+$/, '')}-${i}`;
+      keys.add(key);
+      const account = str(m.account, 60);
+      if (kind === 'mobile' && account && !PHONE.test(account)) throw new HttpError(400, `${label}: "${account}" is not a valid mobile number.`);
+      return {
+        key,
+        label,
+        kind,
+        enabled: m.enabled === true || m.enabled === 'true',
+        purposes: (Array.isArray(m.purposes) ? m.purposes : []).filter((p) => purposes.includes(p)),
+        account,
+        accountName: str(m.accountName, 120),
+        accountType: kind === 'mobile' && MOBILE_ACCOUNT_TYPES.includes(m.accountType) ? m.accountType : '',
+        bankName: kind === 'bank' ? str(m.bankName, 120) : '',
+        branch: kind === 'bank' ? str(m.branch, 120) : '',
+        instructions: str(m.instructions, 500),
+      };
+    });
+    return { methods };
+  },
   membership: (input) => {
     const fee = Number(input.fee);
     if (!Number.isFinite(fee) || fee < 0) throw new HttpError(400, 'Fee must be a positive number.');
@@ -252,9 +291,6 @@ const CLEANERS = {
       notice: str(input.notice, 300),
       fee,
       renewFee,
-      bkash: str(input.bkash, 20),
-      nagad: str(input.nagad, 20),
-      rocket: str(input.rocket, 20),
       reference: str(input.reference, 200),
     };
   },
@@ -276,4 +312,9 @@ export async function getContactInfo() {
   } catch {
     return toPlain(DEFAULTS.contact);
   }
+}
+
+// Every configured payment method (Dashboard → Payment Methods); filter with methodsFor() for payers
+export async function getPaymentMethods() {
+  return (await getSetting('payments')).methods || [];
 }

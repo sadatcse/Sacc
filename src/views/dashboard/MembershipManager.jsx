@@ -5,7 +5,8 @@ import useApi from '@/hooks/useApi';
 import usePagination from '@/hooks/usePagination';
 import { apiSecure, apiError } from '@/lib/api-client';
 import { formatDate } from '@/lib/utils';
-import { APPLICATION_STATUSES, GENDER_OPTIONS, PAYMENT_METHODS, PAYMENT_STATUSES, PAYMENT_TYPES, SHIFT_OPTIONS } from '@/config/membership';
+import { APPLICATION_STATUSES, GENDER_OPTIONS, PAYMENT_STATUSES, PAYMENT_TYPES, SHIFT_OPTIONS } from '@/config/membership';
+import usePaymentMethods from '@/hooks/usePaymentMethods';
 import { toDateInput } from '@/lib/membership';
 import ExportButtons from '@/components/dashboard/ExportButtons';
 import PageTitle from '@/components/dashboard/PageTitle';
@@ -23,7 +24,6 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Textarea } from '@/components/forms/FormField';
 
 const STATUS = Object.fromEntries(APPLICATION_STATUSES.map((s) => [s.value, s]));
-const PAYMENT_LABELS = Object.fromEntries(PAYMENT_METHODS.map((m) => [m.value, m.label]));
 const SHIFT_LABELS = Object.fromEntries(SHIFT_OPTIONS.map((s) => [s.value, s.label]));
 const fullName = (a) => `${a.firstName} ${a.lastName}`;
 const photoUrl = (a) => `/api/membership/${a._id}/photo`;
@@ -34,17 +34,14 @@ const SETTINGS_FIELDS = [
   { name: 'fee', label: 'Membership fee (BDT)', type: 'number', required: true },
   { name: 'renewFee', label: 'Renewal fee per year (BDT)', type: 'number', required: true, help: 'Members renew for 1–3 years from Account → Payments.' },
   { name: 'reference', label: 'Payment reference instruction', placeholder: 'Your name_Student ID' },
-  { type: 'heading', label: 'Club receiving numbers (leave empty to hide a method)' },
-  { name: 'bkash', label: 'bKash number', placeholder: '01XXXXXXXXX' },
-  { name: 'nagad', label: 'Nagad number', placeholder: '01XXXXXXXXX' },
-  { name: 'rocket', label: 'Rocket number', placeholder: '01XXXXXXXXX' },
+  { type: 'heading', label: 'bKash / Nagad / Rocket numbers, cash, cheque and bank: Dashboard → Payment Methods' },
 ];
 
-const CSV_COLUMNS = [
+const csvColumns = (methodName) => [
   ['Submitted', (a) => formatDate(a.createdAt, true)], ['Status', (a) => a.status], ['First name', (a) => a.firstName], ['Last name', (a) => a.lastName],
   ['Student ID', (a) => a.studentId], ['Department', (a) => a.department], ['Batch', (a) => a.batch], ['Shift', (a) => SHIFT_LABELS[a.shift]], ['Gender', (a) => a.gender],
   ['Email', (a) => a.personalEmail], ['Phone', (a) => a.phone], ['Backup phone', (a) => a.backupPhone],
-  ['T-shirt', (a) => a.tshirtSize], ['Blood group', (a) => a.bloodGroup], ['Facebook', (a) => a.facebook], ['Payment', (a) => PAYMENT_LABELS[a.paymentMethod]],
+  ['T-shirt', (a) => a.tshirtSize], ['Blood group', (a) => a.bloodGroup], ['Facebook', (a) => a.facebook], ['Payment', (a) => methodName(a.paymentMethod)],
   ['Paid from', (a) => a.paymentFrom], ['Transaction ID', (a) => a.transactionId], ['Amount', (a) => a.amount], ['Soft skills', (a) => a.softSkills.join('; ')],
   ['Joined', (a) => (a.joinedAt ? formatDate(a.joinedAt) : '')], ['Valid until', (a) => (a.expiresAt ? formatDate(a.expiresAt) : '')],
   ['Experience', (a) => a.experience], ['Admin note', (a) => a.adminNote],
@@ -55,6 +52,7 @@ const PAY_STATUS = Object.fromEntries(PAYMENT_STATUSES.map((s) => [s.value, s]))
 
 // Every payment linked to this application (joining fee + renewals)
 function PaymentHistory({ appId, refreshKey }) {
+  const { label: methodName } = usePaymentMethods();
   const [rows, setRows] = useState(null);
   useEffect(() => {
     let active = true;
@@ -74,7 +72,7 @@ function PaymentHistory({ appId, refreshKey }) {
         <li key={p._id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
           <Badge color={PAY_TYPE[p.type]?.color}>{PAY_TYPE[p.type]?.label}{p.years ? ` · ${p.years} yr` : ''}</Badge>
           <span className="font-semibold text-ink">{p.amount} BDT</span>
-          <span className="text-xs text-subtle">{PAYMENT_LABELS[p.method] || p.method}{p.transactionId && ` · ${p.transactionId}`} · {formatDate(p.paidAt)}</span>
+          <span className="text-xs text-subtle">{methodName(p.method)}{p.transactionId && ` · ${p.transactionId}`} · {formatDate(p.paidAt)}</span>
           <Badge color={PAY_STATUS[p.status]?.color} className="ml-auto">{PAY_STATUS[p.status]?.label}</Badge>
         </li>
       ))}
@@ -93,6 +91,7 @@ function Row({ label, children }) {
 }
 
 function ApplicationDetail({ app, onUpdated, onDeleted, onClose }) {
+  const { label: methodName } = usePaymentMethods();
   const [note, setNote] = useState(app.adminNote || '');
   const [gender, setGender] = useState(app.gender || '');
   const [joinedAt, setJoinedAt] = useState(toDateInput(app.joinedAt));
@@ -174,7 +173,7 @@ function ApplicationDetail({ app, onUpdated, onDeleted, onClose }) {
               <Row label="Blood / T-shirt">{app.bloodGroup} · {app.tshirtSize}</Row>
               <Row label="Facebook">{app.facebook && <a href={app.facebook} target="_blank" rel="noopener noreferrer" className="text-primary-600 dark:text-primary-400 hover:underline">Open profile</a>}</Row>
               <Row label="Payment">
-                {PAYMENT_LABELS[app.paymentMethod]} · {app.amount} BDT
+                {methodName(app.paymentMethod)} · {app.amount} BDT
                 {app.transactionId && <span className="block font-mono text-xs">TrxID {app.transactionId} · from {app.paymentFrom}</span>}
               </Row>
               <Row label="Submitted">{formatDate(app.createdAt, true)}</Row>
@@ -235,6 +234,7 @@ function ApplicationDetail({ app, onUpdated, onDeleted, onClose }) {
 }
 
 export default function MembershipManager() {
+  const { label: methodName } = usePaymentMethods();
   const { data: apps, setData: setApps, loading, error, reload } = useApi('/membership', { initialData: [], select: (res) => res.data || [] });
   const settings = useApi('/settings/membership', { select: (res) => res.data });
   const [search, setSearch] = useState('');
@@ -288,7 +288,7 @@ export default function MembershipManager() {
       header: 'Payment',
       render: (a) => (
         <div className="text-xs">
-          <p className="font-medium text-ink-2">{PAYMENT_LABELS[a.paymentMethod]}</p>
+          <p className="font-medium text-ink-2">{methodName(a.paymentMethod)}</p>
           {a.transactionId && <p className="font-mono text-subtle">{a.transactionId}</p>}
         </div>
       ),
@@ -314,7 +314,7 @@ export default function MembershipManager() {
         }
         actions={
           <>
-            <ExportButtons filename="membership-applications" title="Membership applications" load={() => ({ columns: CSV_COLUMNS, rows: filtered })} disabled={!filtered.length} />
+            <ExportButtons filename="membership-applications" title="Membership applications" load={() => ({ columns: csvColumns(methodName), rows: filtered })} disabled={!filtered.length} />
             <Button variant="secondary" onClick={() => setEditingSettings(true)} disabled={!s}><FaCog /> Registration settings</Button>
             <Button variant="secondary" onClick={reload} disabled={loading}>Refresh</Button>
           </>

@@ -23,6 +23,7 @@ const GalleryPhotoSchema = new mongoose.Schema(
     album: { type: String, trim: true, default: 'Moments', maxlength: 80, index: true },
     post: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
     featured: { type: Boolean, default: false }, // pinned to the top
+    serial: { type: Number, default: null }, // display order (1 = first); photos without one follow, newest first
     hidden: { type: Boolean, default: false }, // kept in the dashboard, not shown on the site
     deletedAt: { type: Date }, // folder photos are only marked deleted, so a folder import doesn't bring them back
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

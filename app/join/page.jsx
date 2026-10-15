@@ -1,6 +1,7 @@
 import DarkPageHeader from '@/components/ui/DarkPageHeader';
 import JoinForm from '@/components/join/JoinForm';
-import { getSetting } from '@/server/services/settings.service';
+import { getPaymentMethods, getSetting } from '@/server/services/settings.service';
+import { methodsFor } from '@/config/payment-methods';
 import { siteConfig } from '@/config/site';
 
 export const metadata = {
@@ -8,11 +9,11 @@ export const metadata = {
   description: `Apply for membership of the ${siteConfig.name}.`,
 };
 
-// Open/closed, fee and payment numbers come from Dashboard → Membership
+// Open/closed and fee come from Dashboard → Membership; payment methods from Dashboard → Payment Methods
 export const dynamic = 'force-dynamic';
 
 export default async function Page() {
-  const settings = await getSetting('membership');
+  const [settings, methods] = await Promise.all([getSetting('membership'), getPaymentMethods()]);
 
   return (
     <div className="min-h-[70vh] bg-canvas text-body">
@@ -23,7 +24,7 @@ export default async function Page() {
         breadcrumbs={[{ label: 'Join Us' }]}
       />
       <section className="container max-w-7xl 2xl:max-w-screen-2xl py-10 md:py-14">
-        <JoinForm settings={settings} />
+        <JoinForm settings={settings} methods={methodsFor(methods, 'membership')} />
       </section>
     </div>
   );

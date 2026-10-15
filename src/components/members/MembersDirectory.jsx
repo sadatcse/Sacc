@@ -1,9 +1,10 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { FaUsers, FaMale, FaFemale, FaPhoneAlt, FaWhatsapp, FaEnvelope, FaFacebookF, FaLock, FaSearch, FaTint } from 'react-icons/fa';
-import { apiSecure, apiError } from '@/lib/api-client';
+import { api, apiSecure, apiError } from '@/lib/api-client';
 import { cn, formatDate, formatPhone } from '@/lib/utils';
-import { PAYMENT_METHODS, SHIFT_OPTIONS } from '@/config/membership';
+import { SHIFT_OPTIONS } from '@/config/membership';
+import { methodLabel } from '@/config/payment-methods';
 import ExportButtons from '@/components/dashboard/ExportButtons';
 import StatCard, { StatGrid } from '@/components/dashboard/StatCard';
 import Alert from '@/components/ui/Alert';
@@ -15,7 +16,6 @@ const GENDERS = [
   { value: 'male', label: 'Male' },
   { value: 'female', label: 'Female' },
 ];
-const PAYMENT_LABELS = Object.fromEntries(PAYMENT_METHODS.map((m) => [m.value, m.label]));
 const SHIFT_LABELS = Object.fromEntries(SHIFT_OPTIONS.map((s) => [s.value, s.label]));
 const STATES = [
   { value: '', label: 'Active & expired' },
@@ -24,19 +24,22 @@ const STATES = [
 ];
 
 // Full member details for the admin download (from the approved applications)
-const EXPORT_COLUMNS = [
+const exportColumns = (methods) => [
   ['Name', (a) => `${a.firstName} ${a.lastName}`], ['Student ID', (a) => a.studentId], ['Department', (a) => a.department], ['Batch', (a) => a.batch],
   ['Shift', (a) => SHIFT_LABELS[a.shift]], ['Gender', (a) => a.gender], ['Phone (WhatsApp)', (a) => a.phone], ['Backup phone', (a) => a.backupPhone],
   ['Email', (a) => a.personalEmail], ['Blood group', (a) => a.bloodGroup], ['T-shirt', (a) => a.tshirtSize], ['Facebook', (a) => a.facebook],
   ['Joined', (a) => formatDate(a.joinedAt)], ['Valid until', (a) => formatDate(a.expiresAt)], ['Membership', (a) => (a.expired ? 'Expired' : 'Active')],
-  ['Joining payment', (a) => PAYMENT_LABELS[a.paymentMethod]], ['Transaction ID', (a) => a.transactionId], ['Joining fee (BDT)', (a) => Number(a.amount) || 0],
+  ['Joining payment', (a) => methodLabel(methods, a.paymentMethod)], ['Transaction ID', (a) => a.transactionId], ['Joining fee (BDT)', (a) => Number(a.amount) || 0],
   ['Soft skills', (a) => (a.softSkills || []).join('; ')],
 ];
 
 async function loadMemberDetails() {
-  const res = await apiSecure.get('/membership?status=approved');
+  const [res, methods] = await Promise.all([
+    apiSecure.get('/membership?status=approved'),
+    api.get('/settings/payments').then((r) => r.data.data.methods).catch(() => []),
+  ]);
   const rows = (res.data.data || []).sort((a, b) => b.batch.localeCompare(a.batch, undefined, { numeric: true }) || a.firstName.localeCompare(b.firstName));
-  return { columns: EXPORT_COLUMNS, rows };
+  return { columns: exportColumns(methods), rows };
 }
 
 const tel = (phone) => phone.replace(/[^\d+]/g, '');

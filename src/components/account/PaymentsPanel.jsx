@@ -1,9 +1,11 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { FaCalendarCheck, FaExclamationTriangle, FaHandHoldingHeart, FaRedo, FaCopy, FaCheck } from 'react-icons/fa';
+import { FaCalendarCheck, FaExclamationTriangle, FaHandHoldingHeart, FaRedo } from 'react-icons/fa';
 import { apiSecure, apiError } from '@/lib/api-client';
 import { cn, formatDate } from '@/lib/utils';
-import { MOBILE_PAYMENT_METHODS, PAYMENT_METHODS, PAYMENT_STATUSES, PAYMENT_TYPES, RENEW_YEARS } from '@/config/membership';
+import { PAYMENT_STATUSES, PAYMENT_TYPES, RENEW_YEARS } from '@/config/membership';
+import { kindOf, methodLabel } from '@/config/payment-methods';
+import PayTo from '@/components/payments/PayTo';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -13,62 +15,26 @@ import { Input, Select, Textarea } from '@/components/forms/FormField';
 
 const TYPE = Object.fromEntries(PAYMENT_TYPES.map((t) => [t.value, t]));
 const STATUS = Object.fromEntries(PAYMENT_STATUSES.map((s) => [s.value, s]));
-const METHOD = Object.fromEntries(PAYMENT_METHODS.map((m) => [m.value, m.label]));
 const bdt = (n) => `${Number(n || 0).toLocaleString('en-US')} BDT`;
-const EMPTY = { years: '1', amount: '', method: 'bkash', paidFrom: '', transactionId: '', note: '' };
-
-function CopyNumber({ number }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(number);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard blocked */
-    }
-  };
-  return (
-    <button type="button" onClick={copy} className="inline-flex items-center gap-1.5 rounded-md border border-line/15 px-2 py-1 font-mono text-sm text-ink hover:border-orange-500">
-      {number} {copied ? <FaCheck className="text-green-600" aria-label="Copied" /> : <FaCopy className="text-xs text-subtle" aria-label="Copy" />}
-    </button>
-  );
-}
-
-// Where to send money (bKash / Nagad / Rocket numbers from Settings)
-function HowToPay({ pay }) {
-  const numbers = PAYMENT_METHODS.filter((m) => pay[m.value]);
-  if (!numbers.length) return <p className="text-sm text-muted">Pay at the club desk, then send the details below.</p>;
-  return (
-    <div className="rounded-lg border border-orange-500/25 bg-orange-500/5 p-3 text-sm">
-      <p className="mb-2 font-medium text-ink">Send money to the club:</p>
-      <ul className="flex flex-wrap gap-3">
-        {numbers.map((m) => (
-          <li key={m.value} className="flex items-center gap-2">
-            <span className="text-muted">{m.label}</span> <CopyNumber number={pay[m.value]} />
-          </li>
-        ))}
-      </ul>
-      {pay.reference && <p className="mt-2 text-xs text-subtle">Reference: {pay.reference}</p>}
-    </div>
-  );
-}
+const EMPTY = { years: '1', amount: '', method: '', paidFrom: '', transactionId: '', note: '' };
 
 function PaymentForm({ type, pay, disabled, onSent }) {
   const [values, setValues] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState({ type: '', message: '' });
   const set = (name) => (e) => setValues((v) => ({ ...v, [name]: e.target.value }));
-  const mobile = MOBILE_PAYMENT_METHODS.includes(values.method);
   const renewal = type === 'renewal';
-  const methods = PAYMENT_METHODS.filter((m) => !MOBILE_PAYMENT_METHODS.includes(m.value) || pay[m.value]);
+  // Methods switched on for this purpose in Dashboard → Payment Methods
+  const methods = pay.methods.filter((m) => m.purposes.includes(type));
+  const method = methods.find((m) => m.key === values.method) || methods[0];
+  const kind = kindOf(method);
 
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true);
     setStatus({ type: '', message: '' });
     try {
-      const res = await apiSecure.post('/payments/mine', { ...values, type, years: Number(values.years), amount: Number(values.amount) });
+      const res = await apiSecure.post('/payments/mine', { ...values, method: method.key, type, years: Number(values.years), amount: Number(values.amount) });
       setValues(EMPTY);
       setStatus({ type: 'success', message: res.data.message });
       onSent();
@@ -80,9 +46,10 @@ function PaymentForm({ type, pay, disabled, onSent }) {
   };
 
   const locked = disabled || busy;
+  if (!methods.length) return <Alert type="info">The club hasn’t published a payment method for this yet. Please contact the committee.</Alert>;
+  const amount = renewal ? bdt(pay.renewFee * Number(values.years)) : values.amount && bdt(values.amount);
   return (
     <form onSubmit={submit} className="space-y-4">
-      <HowToPay pay={pay} />
       <div className="grid gap-4 sm:grid-cols-2">
         {renewal ? (
           <Select
@@ -96,12 +63,15 @@ function PaymentForm({ type, pay, disabled, onSent }) {
         ) : (
           <Input label="Amount (BDT)" name="amount" type="number" min="10" step="1" required value={values.amount} onChange={set('amount')} disabled={locked} placeholder="e.g. 1000" />
         )}
-        <Select label="Paid with" name="method" value={values.method} onChange={set('method')} disabled={locked} options={methods} />
-        {mobile && (
-          <>
-            <Input label="Number you paid from" name="paidFrom" required value={values.paidFrom} onChange={set('paidFrom')} disabled={locked} placeholder="01XXXXXXXXX" />
-            <Input label="Transaction ID" name="transactionId" required value={values.transactionId} onChange={set('transactionId')} disabled={locked} placeholder="e.g. 9BX7K2L1QZ" />
-          </>
+        <Select label="Paid with" name="method" value={method.key} onChange={set('method')} disabled={locked} options={methods.map((m) => ({ value: m.key, label: m.label }))} />
+      </div>
+      <PayTo method={method} amount={amount} reference={pay.reference} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        {kind.from && (
+          <Input label={kind.from.required ? kind.from.label : `${kind.from.label} (optional)`} name="paidFrom" required={kind.from.required} value={values.paidFrom} onChange={set('paidFrom')} disabled={locked} placeholder={kind.from.placeholder} />
+        )}
+        {kind.ref && (
+          <Input label={kind.ref.required ? kind.ref.label : `${kind.ref.label} (optional)`} name="transactionId" required={kind.ref.required} value={values.transactionId} onChange={set('transactionId')} disabled={locked} placeholder={kind.ref.placeholder} />
         )}
       </div>
       <Textarea label={renewal ? 'Note (optional)' : 'Message to the club (optional)'} name="note" rows={2} value={values.note} onChange={set('note')} disabled={locked} />
@@ -207,7 +177,7 @@ export default function PaymentsPanel() {
                       {p.years > 0 && ` · ${p.years} year${p.years > 1 ? 's' : ''}`}
                     </p>
                     <p className="text-xs text-subtle">
-                      {formatDate(p.paidAt)} · {METHOD[p.method] || p.method}
+                      {formatDate(p.paidAt)} · {methodLabel(data.pay.methods, p.method)}
                       {p.transactionId && ` · TrxID ${p.transactionId}`}
                       {p.periodEnd && ` · valid ${formatDate(p.periodStart)} – ${formatDate(p.periodEnd)}`}
                     </p>

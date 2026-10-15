@@ -4,8 +4,8 @@ import nodemailer from 'nodemailer';
 import { siteConfig } from '@/config/site';
 import { escapeHtml, formatPhone } from '@/lib/utils';
 import { decryptSecret } from '@/lib/secret-box';
-import { getContactInfo, getSetting } from '@/server/services/settings.service';
-import { PAYMENT_METHODS } from '@/config/membership';
+import { getContactInfo, getPaymentMethods, getSetting } from '@/server/services/settings.service';
+import { methodLabel } from '@/config/payment-methods';
 
 // ---------- configuration ----------
 
@@ -108,14 +108,15 @@ const reference = (id) => String(id).slice(-8).toUpperCase();
 
 // ---------- membership ----------
 
-function applicationRows(app) {
+async function applicationRows(app) {
+  const methods = await getPaymentMethods().catch(() => []);
   return [
     ['Reference', reference(app._id)],
     ['Name', `${app.firstName} ${app.lastName}`],
     ['Student ID', app.studentId],
     ['Batch · Shift', `${app.batch} · ${SHIFT[app.shift] || app.shift}`],
     ['Department', app.department],
-    ['Payment', [PAYMENT_METHODS.find((m) => m.value === app.paymentMethod)?.label || app.paymentMethod, app.amount ? `${app.amount} BDT` : '', app.transactionId && `TrxID ${app.transactionId}`].filter(Boolean).join(' · ')],
+    ['Payment', [methodLabel(methods, app.paymentMethod), app.amount ? `${app.amount} BDT` : '', app.transactionId && `TrxID ${app.transactionId}`].filter(Boolean).join(' · ')],
   ];
 }
 
@@ -128,7 +129,7 @@ export async function sendMembershipReceived(app) {
     html: layout({
       heading: `Thank you, ${app.firstName}!`,
       intro: `We have received your application to join the <b>${e(siteConfig.name)}</b>. Our team will verify your details and payment and let you know by email once it is reviewed.`,
-      body: `${table(applicationRows(app))}<p style="font-size:13px;color:#71717a;margin-top:14px">${
+      body: `${table(await applicationRows(app))}<p style="font-size:13px;color:#71717a;margin-top:14px">${
         app.user ? 'Your member account is created and will be activated together with your membership — you can sign in once it is approved. ' : ''
       }Keep your reference number. If anything is wrong, simply reply to this email.</p>`,
       button: { label: 'Visit the club website', href: site() },
@@ -147,7 +148,7 @@ export async function sendMembershipApproved(app) {
     html: layout({
       heading: `Welcome to the club, ${app.firstName}! 🎉`,
       intro: `Great news — your membership application to the <b>${e(siteConfig.name)}</b> has been <b style="color:#16a34a">approved</b>. You are now an official member.`,
-      body: `${table(applicationRows(app))}<p style="font-size:14px;line-height:1.6">${
+      body: `${table(await applicationRows(app))}<p style="font-size:14px;line-height:1.6">${
         app.user
           ? `Your member account is now active — sign in with <b>${e(app.personalEmail)}</b> and the password you chose on the Join form to update your profile.`
           : 'Follow our News page and Facebook for upcoming workshops, contests and events.'
@@ -184,7 +185,7 @@ export async function sendMembershipAdminNotice(app) {
     html: layout({
       heading: 'New membership application',
       intro: 'A new application was submitted on the Join page. It is waiting for review as a draft.',
-      body: table([...applicationRows(app), ['Email', app.personalEmail], ['Phone', app.phone]]),
+      body: table([...(await applicationRows(app)), ['Email', app.personalEmail], ['Phone', app.phone]]),
       button: { label: 'Review in the dashboard', href: `${site()}/dashboard/membership` },
     }),
     text: toText('New membership application', `${app.firstName} ${app.lastName} (${app.studentId})`, `${site()}/dashboard/membership`),

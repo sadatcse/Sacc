@@ -1,5 +1,5 @@
 import { TbLayoutDashboard } from 'react-icons/tb';
-import { FaGlobe, FaEnvelope, FaNewspaper, FaUsers, FaUserTie, FaUserGraduate, FaIdCard, FaLock, FaInfoCircle, FaUserPlus, FaCog, FaSignInAlt, FaHistory, FaImages, FaMoneyBillWave, FaCertificate } from 'react-icons/fa';
+import { FaGlobe, FaEnvelope, FaNewspaper, FaUsers, FaUserTie, FaUserGraduate, FaIdCard, FaLock, FaInfoCircle, FaUserPlus, FaCog, FaSignInAlt, FaHistory, FaImages, FaMoneyBillWave, FaCertificate, FaAward, FaWallet, FaQrcode } from 'react-icons/fa';
 
 // Public site navigation (Navbar + Footer)
 export const mainNav = [
@@ -13,9 +13,9 @@ export const mainNav = [
   { label: 'Join Us', href: '/join' },
 ];
 
-// Footer "Explore" column — the main menu without these pages
+// Footer "Explore" column — the main menu without these pages, plus certificate verification
 const FOOTER_HIDDEN = ['/gallery', '/join'];
-export const footerNav = mainNav.filter((link) => !FOOTER_HIDDEN.includes(link.href));
+export const footerNav = [...mainNav.filter((link) => !FOOTER_HIDDEN.includes(link.href)), { label: 'Verify Certificate', href: '/certificates' }];
 
 export const legalNav = [
   { label: 'Terms of Use', href: '/legal/termsofuse' },
@@ -38,10 +38,17 @@ export const dashboardNav = [
     items: [
       { label: 'News & Events', href: '/dashboard/news', icon: FaNewspaper },
       { label: 'Executives', href: '/dashboard/executives', icon: FaUserTie },
-      { label: 'Certificates', href: '/dashboard/certificates', icon: FaCertificate },
       { label: 'Alumni', href: '/dashboard/alumni', icon: FaUserGraduate },
       { label: 'Gallery', href: '/dashboard/gallery', icon: FaImages },
       { label: 'About Page', href: '/dashboard/about', icon: FaInfoCircle },
+    ],
+  },
+  {
+    title: 'Certificates',
+    items: [
+      { label: 'Executive Certificates', href: '/dashboard/certificates', icon: FaCertificate },
+      { label: 'Event Certificates', href: '/dashboard/event-certificates', icon: FaAward },
+      { label: 'Verify Page', href: '/certificates', icon: FaQrcode, external: true }, // public page
     ],
   },
   {
@@ -49,6 +56,7 @@ export const dashboardNav = [
     items: [
       { label: 'Membership', href: '/dashboard/membership', icon: FaUserPlus },
       { label: 'Payments', href: '/dashboard/payments', icon: FaMoneyBillWave },
+      { label: 'Payment Methods', href: '/dashboard/payment-methods', icon: FaWallet },
       { label: 'Users', href: '/dashboard/users', icon: FaUsers },
     ],
   },
@@ -78,7 +86,7 @@ export const accountNav = [
   { label: 'Password', href: '/account/security', icon: FaLock },
   { label: 'Club Members', href: '/account/members', icon: FaUsers, roles: ['student'] },
   { label: 'Payments', href: '/account/payments', icon: FaMoneyBillWave, roles: ['student', 'alumni'] },
-  { label: 'Certificates', href: '/account/certificates', icon: FaCertificate, roles: ['student', 'alumni'] },
+  { label: 'Certificates', href: '/account/certificates', icon: FaCertificate, roles: ['alumni'] },
 ];
 
 // Routes where the public Navbar/Footer are hidden

@@ -5,7 +5,7 @@ import { getPublishedPosts } from '@/server/services/news.service';
 export const dynamic = 'force-dynamic';
 
 export default async function sitemap() {
-  const pages = [...mainNav, ...legalNav].map((route) => ({
+  const pages = [...mainNav, { href: '/certificates' }, ...legalNav].map((route) => ({
     url: `${siteConfig.url}${route.href === '/' ? '' : route.href}`,
     lastModified: new Date(),
     changeFrequency: route.href.startsWith('/legal') ? 'yearly' : 'weekly',

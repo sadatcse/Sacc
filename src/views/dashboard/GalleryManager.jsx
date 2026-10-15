@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import {
   FaCloudUploadAlt, FaNewspaper, FaFolderOpen, FaImages, FaEyeSlash, FaEye, FaThumbtack, FaTrashAlt, FaPen, FaSyncAlt, FaCheck, FaExternalLinkAlt,
+  FaSortNumericDown, FaArrowLeft, FaArrowRight, FaGripVertical,
 } from 'react-icons/fa';
 import useApi from '@/hooks/useApi';
 import { apiSecure, apiError } from '@/lib/api-client';
@@ -241,6 +242,89 @@ function NewsPicker({ albums, onClose, onAdded }) {
   );
 }
 
+// ---------- arrange (serial numbers) ----------
+
+// Drag the photos (or use the arrows) into the order the website should show them, then save → serial 1…n
+function ArrangePanel({ photos, onSave, onCancel }) {
+  const [order, setOrder] = useState(() => photos.map((p) => p._id));
+  const [dragging, setDragging] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const byId = useMemo(() => Object.fromEntries(photos.map((p) => [p._id, p])), [photos]);
+  const changed = order.some((id, i) => id !== photos[i]._id);
+
+  const move = (from, to) => {
+    if (to < 0 || to >= order.length || from === to) return;
+    setOrder((o) => {
+      const next = [...o];
+      next.splice(to, 0, next.splice(from, 1)[0]);
+      return next;
+    });
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await onSave(order);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-3 border-b border-line/10 bg-primary-500/5 px-4 py-3">
+        <p className="text-sm text-body">
+          <span className="font-semibold text-ink">Arrange order:</span> drag the photos (or use the arrows) — the first one becomes serial 1. Pinned photos always stay on top of the gallery.
+        </p>
+        <div className="flex gap-2 sm:ml-auto">
+          <Button variant="secondary" size="sm" onClick={() => setOrder([...order].sort((a, b) => new Date(byId[b].createdAt) - new Date(byId[a].createdAt)))} disabled={saving}>Newest first</Button>
+          <Button variant="secondary" size="sm" onClick={onCancel} disabled={saving}>Cancel</Button>
+          <Button size="sm" onClick={save} disabled={saving || !changed}><FaCheck /> {saving ? 'Saving…' : 'Save order'}</Button>
+        </div>
+      </div>
+      <ul className="grid grid-cols-2 gap-4 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+        {order.map((id, i) => {
+          const p = byId[id];
+          return (
+            <li
+              key={id}
+              draggable
+              onDragStart={(e) => {
+                setDragging(i);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (dragging !== null && dragging !== i) {
+                  move(dragging, i);
+                  setDragging(i);
+                }
+              }}
+              onDragEnd={() => setDragging(null)}
+              className={cn(
+                'cursor-grab overflow-hidden rounded-xl border bg-surface transition-shadow active:cursor-grabbing',
+                dragging === i ? 'border-primary-500 opacity-60 shadow-lg' : 'border-line/10 hover:border-primary-500/50'
+              )}
+            >
+              <div className="relative">
+                <Thumb photo={p} className="relative aspect-[4/3]" />
+                <span className="absolute left-2 top-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-primary-600 px-2 text-xs font-bold text-white shadow">{i + 1}</span>
+                {p.featured && <Badge color="red" className="absolute right-2 top-2 !text-[10px] shadow">Pinned</Badge>}
+                <FaGripVertical className="absolute bottom-2 right-2 text-white drop-shadow" aria-hidden />
+              </div>
+              <div className="flex items-center gap-1 p-2">
+                <p className="min-w-0 flex-1 truncate text-xs text-body" title={p.caption}>{p.caption || p.album}</p>
+                <IconButton label="Move earlier" icon={FaArrowLeft} disabled={i === 0 || saving} onClick={() => move(i, i - 1)} />
+                <IconButton label="Move later" icon={FaArrowRight} disabled={i === order.length - 1 || saving} onClick={() => move(i, i + 1)} />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
+
 // ---------- page ----------
 
 export default function GalleryManager() {
@@ -254,6 +338,7 @@ export default function GalleryManager() {
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [busy, setBusy] = useState(null);
+  const [arranging, setArranging] = useState(false);
   const [notice, setNotice] = useState({ type: '', text: '' });
   const uploadRef = useRef(null);
   const replaceRef = useRef(null);
@@ -337,6 +422,21 @@ export default function GalleryManager() {
 
   const visibleCount = photos.filter((p) => !p.hidden).length;
 
+  // A filtered list is arranged among itself: its photos keep their places in the full order, in the new sequence
+  const saveOrder = async (subset) => {
+    const inSubset = new Set(subset);
+    const queue = [...subset];
+    const ids = photos.map((p) => (inSubset.has(p._id) ? queue.shift() : p._id));
+    try {
+      const res = await apiSecure.post('/gallery/order', { ids });
+      setData((d) => ({ ...d, photos: res.data.data }));
+      setArranging(false);
+      say('success', res.data.message);
+    } catch (err) {
+      say('error', apiError(err));
+    }
+  };
+
   return (
     <>
       <PageTitle
@@ -404,12 +504,17 @@ export default function GalleryManager() {
               <option value="hidden">Hidden</option>
             </select>
           </div>
-          <button type="button" onClick={importFolder} disabled={busy === 'import'} className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:underline disabled:opacity-50 dark:text-primary-400 lg:ml-auto" title="Adds every image in public/gallery — new files and ones deleted earlier — and removes entries whose file is gone">
+          <Button variant="secondary" size="sm" className="lg:ml-auto" onClick={() => setArranging(true)} disabled={arranging || filtered.length < 2}>
+            <FaSortNumericDown /> Arrange order
+          </Button>
+          <button type="button" onClick={importFolder} disabled={busy === 'import'} className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:underline disabled:opacity-50 dark:text-primary-400" title="Adds every image in public/gallery — new files and ones deleted earlier — and removes entries whose file is gone">
             <FaSyncAlt aria-hidden className={busy === 'import' ? 'animate-spin' : ''} /> Import from public/gallery folder
           </button>
         </div>
 
-        {loading ? (
+        {arranging ? (
+          <ArrangePanel photos={filtered} onSave={saveOrder} onCancel={() => setArranging(false)} />
+        ) : loading ? (
           <div className="grid grid-cols-2 gap-4 p-4 sm:grid-cols-3 xl:grid-cols-5">
             {Array.from({ length: 10 }, (_, i) => <Skeleton key={i} className="aspect-[4/3] rounded-xl" />)}
           </div>
@@ -429,6 +534,7 @@ export default function GalleryManager() {
                   <div className="relative">
                     <Thumb photo={p} className="relative aspect-[4/3]" />
                     <div className="absolute left-2 top-2 flex flex-wrap gap-1">
+                      {p.serial && <span className="rounded-full bg-black/65 px-2 py-0.5 text-[10px] font-bold text-white shadow" title="Serial number (display order)">#{p.serial}</span>}
                       <Badge color={sourceColor} className="!text-[10px] shadow">{sourceLabel}</Badge>
                       {p.featured && <Badge color="red" className="!text-[10px] shadow">Pinned</Badge>}
                       {p.hidden && <Badge color="gray" className="!text-[10px] shadow">Hidden</Badge>}
@@ -473,15 +579,18 @@ export default function GalleryManager() {
           fields={[
             { name: 'caption', label: 'Caption', full: true },
             { name: 'album', label: 'Album', full: true, help: albums.length ? `Existing: ${albums.join(', ')}` : undefined },
+            { name: 'serial', label: 'Serial no. (display order)', type: 'number', min: 1, placeholder: 'e.g. 1', help: '1 = shown first. The other photos move up or down to make room. Empty = keep its place.' },
             { name: 'featured', label: 'Pin to the top of the gallery', type: 'checkbox', full: true },
             { name: 'hidden', label: 'Hide from the website', type: 'checkbox', full: true },
           ]}
-          initial={{ caption: editing.caption || '', album: editing.album || '', featured: Boolean(editing.featured), hidden: Boolean(editing.hidden) }}
+          initial={{ caption: editing.caption || '', album: editing.album || '', serial: editing.serial ?? '', featured: Boolean(editing.featured), hidden: Boolean(editing.hidden) }}
           onSubmit={async (values) => {
-            const res = await apiSecure.patch(`/gallery/${editing._id}`, values);
+            const serialChanged = values.serial !== '' && Number(values.serial) !== editing.serial;
+            const res = await apiSecure.patch(`/gallery/${editing._id}`, { ...values, serial: serialChanged ? Number(values.serial) : undefined });
             replaceRow(res.data.data);
             setData((d) => ({ ...d, albums: [...new Set([...d.albums, res.data.data.album])].sort() }));
             setEditing(null);
+            if (serialChanged || values.featured !== Boolean(editing.featured)) reload(); // other photos moved / were renumbered
           }}
           onClose={() => setEditing(null)}
         />

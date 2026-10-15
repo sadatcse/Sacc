@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { FaExternalLinkAlt } from 'react-icons/fa';
 import { usePathname, useRouter } from 'next/navigation';
 import { HiX } from 'react-icons/hi';
 import { CiLogout } from 'react-icons/ci';
@@ -33,13 +34,14 @@ export default function Sidebar({ onClose }) {
           <div key={group.title}>
             <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-faint">{group.title}</p>
             <ul className="space-y-1">
-              {group.items.map(({ label, href, icon: Icon }) => {
+              {group.items.map(({ label, href, icon: Icon, external }) => {
                 const active = href === '/dashboard' ? pathname === href : pathname.startsWith(href);
                 return (
                   <li key={href}>
                     <Link
                       href={href}
                       onClick={onClose}
+                      {...(external && { target: '_blank', rel: 'noopener noreferrer' })}
                       className={cn(
                         'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                         active ? 'bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300' : 'text-muted hover:bg-line/5 hover:text-ink'
@@ -47,6 +49,7 @@ export default function Sidebar({ onClose }) {
                     >
                       {Icon && <Icon className="text-lg" />}
                       {label}
+                      {external && <FaExternalLinkAlt className="ml-auto text-[10px] opacity-60" aria-label="opens in a new tab" />}
                     </Link>
                   </li>
                 );

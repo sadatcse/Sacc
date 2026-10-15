@@ -18,6 +18,15 @@ const NOT_DELETED = { deletedAt: { $exists: false } };
 // Public URL of a photo. Uploads carry their version in the path, so a replaced picture gets a new URL.
 const srcOf = (p) => (p.source === 'upload' || p.image?.contentType ? `/api/gallery/image/${p._id}/${p.version || 1}` : p.src);
 
+// Display order everywhere: pinned first, then by serial number (1, 2, 3…), then photos without a serial, newest first
+const ordered = (rows) =>
+  [...rows].sort(
+    (a, b) =>
+      Number(Boolean(b.featured)) - Number(Boolean(a.featured)) ||
+      (a.serial ?? Infinity) - (b.serial ?? Infinity) ||
+      new Date(b.createdAt) - new Date(a.createdAt)
+  );
+
 function toPublic(p) {
   return { id: String(p._id), src: srcOf(p), width: p.width, height: p.height, album: p.album || DEFAULT_ALBUM, caption: p.caption || null };
 }
@@ -72,12 +81,12 @@ async function ensureImported() {
 
 // ---------- public ----------
 
-// Visible photos, pinned first then newest. Cached per request.
+// Visible photos in display order (pinned, serial, newest). Cached per request.
 export const getGalleryPhotos = cache(async () => {
   await connectDB();
   await ensureImported();
-  const rows = await GalleryPhoto.find({ ...NOT_DELETED, hidden: { $ne: true } }).sort({ featured: -1, createdAt: -1 }).lean();
-  return rows.map(toPublic);
+  const rows = await GalleryPhoto.find({ ...NOT_DELETED, hidden: { $ne: true } }).lean();
+  return ordered(rows).map(toPublic);
 });
 
 export async function getImage(id) {
@@ -91,8 +100,37 @@ export async function getImage(id) {
 
 export async function listPhotos() {
   await ensureImported();
-  const rows = await GalleryPhoto.find(NOT_DELETED).sort({ featured: -1, createdAt: -1 }).populate('post', 'title slug').lean();
-  return rows.map(toAdmin);
+  const rows = await GalleryPhoto.find(NOT_DELETED).populate('post', 'title slug').lean();
+  return ordered(rows).map(toAdmin);
+}
+
+// ---------- serial numbers (display order) ----------
+
+// Numbers the photos 1…n in the given order; any photo not listed keeps its place after them
+async function renumber(ids) {
+  const rest = ordered(await GalleryPhoto.find({ ...NOT_DELETED, _id: { $nin: ids } }).select('featured serial createdAt').lean()).map((p) => String(p._id));
+  const all = [...ids.map(String), ...rest];
+  await GalleryPhoto.bulkWrite(all.map((id, i) => ({ updateOne: { filter: { _id: id }, update: { $set: { serial: i + 1 } } } })));
+}
+
+// Dashboard → Gallery → Arrange: { ids: [photo ids in the new order] } (all photos, or the first ones)
+export async function setOrder(input = {}) {
+  const ids = [...new Set((Array.isArray(input.ids) ? input.ids : []).map(String))];
+  if (!ids.length) throw new HttpError(400, 'Send the photos in their new order.');
+  ids.forEach((id) => assertId(id, 'photo'));
+  if ((await GalleryPhoto.countDocuments({ ...NOT_DELETED, _id: { $in: ids } })) !== ids.length) throw new HttpError(400, 'Some photos no longer exist — reload the page and try again.');
+  await renumber(ids);
+  return listPhotos();
+}
+
+// Moves one photo to serial `position` (1 = first) and renumbers the rest
+async function moveTo(id, position) {
+  const current = ordered(await GalleryPhoto.find(NOT_DELETED).select('featured serial createdAt').lean()).map((p) => String(p._id));
+  const from = current.indexOf(String(id));
+  if (from < 0) throw notFound('Photo');
+  current.splice(from, 1);
+  current.splice(Math.min(Math.max(position, 1), current.length + 1) - 1, 0, String(id));
+  await renumber(current);
 }
 
 export async function albumNames() {
@@ -150,7 +188,16 @@ export async function replaceImage(id, form) {
 
 export async function updatePhoto(id, input) {
   assertId(id, 'photo');
-  const row = await GalleryPhoto.findOneAndUpdate({ _id: id, ...NOT_DELETED }, { $set: cleanMeta(input) }, { returnDocument: 'after' })
+  if (input.serial !== undefined && input.serial !== '' && input.serial !== null) {
+    const position = Number(input.serial);
+    if (!Number.isInteger(position) || position < 1) throw new HttpError(400, 'Serial number must be 1 or more.');
+    await moveTo(id, position);
+  }
+  const meta = cleanMeta(input);
+  const row = await (Object.keys(meta).length
+    ? GalleryPhoto.findOneAndUpdate({ _id: id, ...NOT_DELETED }, { $set: meta }, { returnDocument: 'after' })
+    : GalleryPhoto.findOne({ _id: id, ...NOT_DELETED })
+  )
     .populate('post', 'title slug')
     .lean();
   if (!row) throw notFound('Photo');

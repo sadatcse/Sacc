@@ -21,7 +21,7 @@ const PaymentSchema = new mongoose.Schema(
     amount: { type: Number, required: true, min: 0 },
     years: { type: Number, default: 0, min: 0, max: 3 }, // renewals
     method: { type: String, trim: true, default: '' },
-    paidFrom: { type: String, trim: true, default: '', maxlength: 30 },
+    paidFrom: { type: String, trim: true, default: '', maxlength: 60 }, // sender number, bank, or the cheque's bank
     transactionId: { type: String, trim: true, default: '', maxlength: 60 },
     note: { type: String, trim: true, default: '', maxlength: 1000 }, // from the payer
     adminNote: { type: String, trim: true, default: '', maxlength: 1000 },

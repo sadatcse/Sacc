@@ -1,7 +1,10 @@
-// Server-only: draws a student executive certificate as an A4 landscape PDF (pdf-lib, standard fonts).
-//   const bytes = await certificatePdf({ certificate, template, signatures, verifyUrl, club });
+// Server-only: draws certificates as A4 landscape PDFs (pdf-lib, standard fonts) — student executive
+// certificates and event certificates (participants, winners, speakers, guests…) share the design.
+//   const bytes = await certificatePdf({ certificate, template, signatures, verifyUrl, club, body?, details? });
+//   const bytes = await certificatesPdf([...same options per page], { title, club });   // one page each
 // `signatures` maps a signer's executive id → { data, contentType } (PNG / JPG). Signers without one get an
 // empty line to sign by hand. A QR code (bottom left) opens the verify page for the certificate.
+// `body` / `details` (optional) replace the text built from an executive certificate's recipient.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
@@ -87,22 +90,50 @@ function drawQr(page, text, { x, y, size }) {
   }
 }
 
-export async function certificatePdf({ certificate: c, template, signatures = {}, verifyUrl, club }) {
-  const pdf = await PDFDocument.create();
-  pdf.setTitle(pdfSafe(`${template.title} - ${c.recipient.name} (${c.year})`));
-  pdf.setAuthor(pdfSafe(club));
-  pdf.setSubject(pdfSafe(`Certificate ${c.code}`));
-  pdf.setCreator(pdfSafe(club));
+// Fonts, logos and signature images are embedded once per document and reused on every page
+async function documentAssets(pdf) {
+  const [sans, sansBold, serif, serifBold, serifItalic, serifBoldItalic] = await Promise.all(
+    [StandardFonts.Helvetica, StandardFonts.HelveticaBold, StandardFonts.TimesRoman, StandardFonts.TimesRomanBold, StandardFonts.TimesRomanItalic, StandardFonts.TimesRomanBoldItalic].map((f) => pdf.embedFont(f))
+  );
+  const [university, clubLogo] = await Promise.all(
+    ['university-logo.png', 'logo.png'].map(async (name) => embedImage(pdf, { data: await readPublicFile(name), contentType: 'image/png' }))
+  );
+  return { font: { sans, sansBold, serif, serifBold, serifItalic, serifBoldItalic }, university, clubLogo, signatures: new Map() };
+}
 
+async function signatureImage(pdf, assets, id, signature) {
+  if (!signature) return null;
+  if (!assets.signatures.has(id)) assets.signatures.set(id, await embedImage(pdf, signature));
+  return assets.signatures.get(id);
+}
+
+function setInfo(pdf, title, club, subject) {
+  pdf.setTitle(pdfSafe(title));
+  pdf.setAuthor(pdfSafe(club));
+  if (subject) pdf.setSubject(pdfSafe(subject));
+  pdf.setCreator(pdfSafe(club));
+}
+
+export async function certificatePdf(options) {
+  const pdf = await PDFDocument.create();
+  const { certificate: c, template, club } = options;
+  setInfo(pdf, `${template.title} - ${c.recipient.name}${c.year ? ` (${c.year})` : ''}`, club, `Certificate ${c.code}`);
+  await drawCertificate(pdf, await documentAssets(pdf), options);
+  return pdf.save();
+}
+
+// Many certificates in one PDF (one page each) — for printing a whole event at once
+export async function certificatesPdf(pages, { title, club }) {
+  const pdf = await PDFDocument.create();
+  setInfo(pdf, title, club);
+  const assets = await documentAssets(pdf);
+  for (const options of pages) await drawCertificate(pdf, assets, options);
+  return pdf.save();
+}
+
+async function drawCertificate(pdf, assets, { certificate: c, template, signatures = {}, verifyUrl, club, body: filledBody, details: detailsText }) {
   const page = pdf.addPage([W, H]);
-  const font = {
-    sans: await pdf.embedFont(StandardFonts.Helvetica),
-    sansBold: await pdf.embedFont(StandardFonts.HelveticaBold),
-    serif: await pdf.embedFont(StandardFonts.TimesRoman),
-    serifBold: await pdf.embedFont(StandardFonts.TimesRomanBold),
-    serifItalic: await pdf.embedFont(StandardFonts.TimesRomanItalic),
-    serifBoldItalic: await pdf.embedFont(StandardFonts.TimesRomanBoldItalic),
-  };
+  const { font, university, clubLogo } = assets;
 
   // Paper, corner accents, double frame
   page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: PAPER });
@@ -113,21 +144,17 @@ export async function certificatePdf({ certificate: c, template, signatures = {}
   page.drawRectangle({ x: 18, y: 18, width: W - 36, height: H - 36, borderColor: ORANGE, borderWidth: 3 });
   page.drawRectangle({ x: 28, y: 28, width: W - 56, height: H - 56, borderColor: GOLD, borderWidth: 0.8 });
 
-  // Header: university logo | club logo (side by side, centred), club name, department
-  const logos = (
-    await Promise.all(['university-logo.png', 'logo.png'].map(async (name) => embedImage(pdf, { data: await readPublicFile(name), contentType: 'image/png' })))
-  ).filter(Boolean);
-  const logoH = 56;
-  const logoGap = 28;
-  const widths = logos.map((img) => (img.width / img.height) * logoH);
-  let logoX = (W - widths.reduce((a, b) => a + b, 0) - logoGap * (logos.length - 1)) / 2;
-  logos.forEach((img, i) => {
-    if (i > 0) {
-      page.drawLine({ start: { x: logoX - logoGap / 2, y: H - 96 }, end: { x: logoX - logoGap / 2, y: H - 48 }, thickness: 0.8, color: GOLD });
-    }
-    page.drawImage(img, { x: logoX, y: H - 100, width: widths[i], height: logoH });
-    logoX += widths[i] + logoGap;
-  });
+  // Header: club logo (centre), university logo (top-right corner — the corner without an accent)
+  if (clubLogo) {
+    const h = 54;
+    const w = (clubLogo.width / clubLogo.height) * h;
+    page.drawImage(clubLogo, { x: (W - w) / 2, y: H - 98, width: w, height: h });
+  }
+  if (university) {
+    const h = 64;
+    const w = (university.width / university.height) * h;
+    page.drawImage(university, { x: W - 52 - w, y: H - 52 - h, width: w, height: h });
+  }
   centered(page, (template.organization || club).toUpperCase(), { y: H - 120, font: font.sansBold, size: 17 });
   centered(page, template.subtitle, { y: H - 136, font: font.sans, size: 10.5, color: MUTED });
 
@@ -138,7 +165,7 @@ export async function certificatePdf({ certificate: c, template, signatures = {}
   centered(page, c.recipient.name, { y: H - 268, font: font.serifBoldItalic, size: 38, maxWidth: 600 });
   page.drawLine({ start: { x: W / 2 - 230, y: H - 280 }, end: { x: W / 2 + 230, y: H - 280 }, thickness: 1, color: ORANGE });
   const r = c.recipient;
-  const details = [r.studentId && `ID: ${r.studentId}`, r.batch && `Batch: ${r.batch}`, r.department].filter(Boolean).join('   |   ');
+  const details = detailsText ?? [r.studentId && `ID: ${r.studentId}`, r.batch && `Batch: ${r.batch}`, r.department].filter(Boolean).join('   |   ');
   centered(page, details, { y: H - 296, font: font.sans, size: 10, color: MUTED });
 
   // Main text
@@ -146,7 +173,7 @@ export async function certificatePdf({ certificate: c, template, signatures = {}
     name: r.name, role: c.role, year: String(c.year), club: template.organization || club,
     batch: r.batch, department: r.department, studentId: r.studentId,
   };
-  const body = pdfSafe(fillTemplate(template.body, vars));
+  const body = pdfSafe(filledBody ?? fillTemplate(template.body, vars));
   let size = 14;
   let lines = wrap(body, font.serif, size, 620);
   while (lines.length > 3 && size > 10) lines = wrap(body, font.serif, (size -= 1), 620);
@@ -160,7 +187,7 @@ export async function certificatePdf({ certificate: c, template, signatures = {}
   for (const [i, s] of signers.entries()) {
     const x = W / 2 + (i - (signers.length - 1) / 2) * gap;
     const lineY = 150;
-    const image = await embedImage(pdf, signatures[String(s.executive)]);
+    const image = await signatureImage(pdf, assets, String(s.executive), signatures[String(s.executive)]);
     if (image) {
       const scale = Math.min(150 / image.width, 44 / image.height);
       const w = image.width * scale;
@@ -186,6 +213,4 @@ export async function certificatePdf({ certificate: c, template, signatures = {}
     const t = pdfSafe(text);
     if (t) page.drawText(t, { x: right - f.widthOfTextAtSize(t, s), y: 66 - i * 13, size: s, font: f, color });
   });
-
-  return pdf.save();
 }

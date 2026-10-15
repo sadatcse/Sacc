@@ -20,7 +20,7 @@ const MembershipApplicationSchema = new mongoose.Schema(
     bloodGroup: { type: String, required: true },
     facebook: { type: String, trim: true, default: '', maxlength: 300 },
     paymentMethod: { type: String, required: true },
-    paymentFrom: { type: String, trim: true, default: '', maxlength: 30 }, // sender number
+    paymentFrom: { type: String, trim: true, default: '', maxlength: 60 }, // sender number, bank, or the cheque's bank
     transactionId: { type: String, trim: true, default: '', maxlength: 60 },
     amount: { type: Number, default: 0 }, // fee at the time of applying
     softSkills: { type: [String], default: [] },

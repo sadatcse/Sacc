@@ -27,6 +27,11 @@ export async function update({ req, params }) {
   return ok(await gallery.updatePhoto(params.id, await readJson(req)), 'Photo saved.');
 }
 
+// { ids: [photo ids in the new order] }
+export async function order({ req }) {
+  return ok(await gallery.setOrder(await readJson(req)), 'Order saved — the gallery shows the photos in this order.');
+}
+
 export async function replace({ req, params }) {
   return ok(await gallery.replaceImage(params.id, await formData(req)), 'Picture changed.');
 }

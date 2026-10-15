@@ -6,7 +6,9 @@ import usePagination from '@/hooks/usePagination';
 import { apiSecure, apiError } from '@/lib/api-client';
 import { formatDate } from '@/lib/utils';
 import { toDateInput } from '@/lib/membership';
-import { MOBILE_PAYMENT_METHODS, PAYMENT_METHODS, PAYMENT_STATUSES, PAYMENT_TYPES, RENEW_YEARS } from '@/config/membership';
+import { PAYMENT_STATUSES, PAYMENT_TYPES, RENEW_YEARS } from '@/config/membership';
+import { kindOf } from '@/config/payment-methods';
+import usePaymentMethods from '@/hooks/usePaymentMethods';
 import PageTitle from '@/components/dashboard/PageTitle';
 import StatCard, { StatGrid } from '@/components/dashboard/StatCard';
 import DataTable from '@/components/dashboard/DataTable';
@@ -24,13 +26,12 @@ import { Textarea } from '@/components/forms/FormField';
 
 const TYPE = Object.fromEntries(PAYMENT_TYPES.map((t) => [t.value, t]));
 const STATUS = Object.fromEntries(PAYMENT_STATUSES.map((s) => [s.value, s]));
-const METHOD = Object.fromEntries(PAYMENT_METHODS.map((m) => [m.value, m.label]));
 const bdt = (n) => `${Number(n || 0).toLocaleString('en-US')} BDT`;
 
-const EXPORT_COLUMNS = [
+const exportColumns = (METHOD) => [
   ['Date', (p) => formatDate(p.paidAt)], ['Type', (p) => TYPE[p.type]?.label], ['Status', (p) => STATUS[p.status]?.label],
   ['Name', (p) => p.name], ['Student ID', (p) => p.studentId], ['Batch', (p) => p.batch], ['Email', (p) => p.email], ['Phone', (p) => p.phone],
-  ['Amount (BDT)', (p) => Number(p.amount) || 0], ['Years', (p) => p.years || ''], ['Method', (p) => METHOD[p.method] || p.method],
+  ['Amount (BDT)', (p) => Number(p.amount) || 0], ['Years', (p) => p.years || ''], ['Method', (p) => METHOD(p.method)],
   ['Paid from', (p) => p.paidFrom], ['Transaction ID', (p) => p.transactionId],
   ['Period', (p) => (p.periodEnd ? `${formatDate(p.periodStart)} – ${formatDate(p.periodEnd)}` : '')],
   ['Note', (p) => p.note], ['Admin note', (p) => p.adminNote], ['Checked by', (p) => p.reviewedBy?.name],
@@ -45,7 +46,7 @@ function Row({ label, children }) {
   );
 }
 
-function PaymentDetail({ payment, onUpdated, onDeleted, onClose }) {
+function PaymentDetail({ payment, methodName, onUpdated, onDeleted, onClose }) {
   const [note, setNote] = useState(payment.adminNote || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -105,7 +106,7 @@ function PaymentDetail({ payment, onUpdated, onDeleted, onClose }) {
           <Row label="Contact">{[payment.email, payment.phone].filter(Boolean).join(' · ')}</Row>
           <Row label="Amount">{bdt(payment.amount)}{payment.years > 0 && ` for ${payment.years} year${payment.years > 1 ? 's' : ''}`}</Row>
           <Row label="Method">
-            {METHOD[payment.method] || payment.method}
+            {methodName(payment.method)}
             {payment.transactionId && <span className="block font-mono text-xs">TrxID {payment.transactionId}{payment.paidFrom && ` · from ${payment.paidFrom}`}</span>}
           </Row>
           <Row label="Date">{formatDate(payment.paidAt, true)}</Row>
@@ -132,8 +133,9 @@ function PaymentDetail({ payment, onUpdated, onDeleted, onClose }) {
 }
 
 // Form for a payment received outside the website (e.g. cash at the club desk)
-function recordFields(values, members, renewFee) {
-  const mobile = MOBILE_PAYMENT_METHODS.includes(values.method);
+function recordFields(values, members, renewFee, methods) {
+  const method = methods.find((m) => m.key === values.method);
+  const kind = kindOf(method);
   return [
     { name: 'type', label: 'Payment for', type: 'select', options: [{ value: 'renewal', label: 'Membership renewal' }, { value: 'donation', label: 'Donation' }] },
     { name: 'paidAt', label: 'Date received', type: 'date' },
@@ -149,8 +151,10 @@ function recordFields(values, members, renewFee) {
           { name: 'email', label: 'Email', type: 'email', help: 'Links the donation to the alumnus’ account if it matches.' },
           { name: 'phone', label: 'Phone' },
         ]),
-    { name: 'method', label: 'Method', type: 'select', options: PAYMENT_METHODS },
-    ...(mobile ? [{ name: 'paidFrom', label: 'Paid from (number)', required: true }, { name: 'transactionId', label: 'Transaction ID', required: true }] : []),
+    // Every configured method (also switched-off ones — e.g. a cheque received once)
+    { name: 'method', label: 'Method', type: 'select', required: true, options: [{ value: '', label: 'Choose…' }, ...methods.map((m) => ({ value: m.key, label: m.enabled ? m.label : `${m.label} (off)` }))] },
+    ...(method && kind.from ? [{ name: 'paidFrom', label: kind.from.label, required: kind.from.required, placeholder: kind.from.placeholder }] : []),
+    ...(method && kind.ref ? [{ name: 'transactionId', label: kind.ref.label, required: kind.ref.required, placeholder: kind.ref.placeholder }] : []),
     { name: 'note', label: 'Note', type: 'textarea', rows: 2, full: true },
   ];
 }
@@ -158,6 +162,7 @@ function recordFields(values, members, renewFee) {
 export default function PaymentsManager() {
   const { data, setData, loading, error, reload } = useApi('/payments', { initialData: { rows: [], stats: null }, select: (res) => res.data });
   const settings = useApi('/settings/membership', { select: (res) => res.data });
+  const payMethods = usePaymentMethods();
   const [search, setSearch] = useState('');
   const [type, setType] = useState('all');
   const [status, setStatus] = useState('all');
@@ -212,7 +217,7 @@ export default function PaymentsManager() {
       header: 'Method',
       render: (p) => (
         <div className="text-xs">
-          <p className="font-medium text-ink-2">{METHOD[p.method] || p.method || '—'}</p>
+          <p className="font-medium text-ink-2">{payMethods.label(p.method) || '—'}</p>
           {p.transactionId && <p className="font-mono text-subtle">{p.transactionId}</p>}
         </div>
       ),
@@ -229,11 +234,12 @@ export default function PaymentsManager() {
           <>
             Every amount received: joining fees, membership renewals and alumni donations. Renewal fee is{' '}
             <span className="font-semibold">{settings.data ? `${bdt(renewFee)} / year` : '…'}</span> (change it in Membership → Registration settings).
+            Accepted methods: <a href="/dashboard/payment-methods" className="font-semibold text-orange-600 hover:underline dark:text-orange-400">Payment Methods</a>.
           </>
         }
         actions={
           <>
-            <ExportButtons filename="payments" title="Payments received" load={() => ({ columns: EXPORT_COLUMNS, rows: filtered })} disabled={!filtered.length} />
+            <ExportButtons filename="payments" title="Payments received" load={() => ({ columns: exportColumns(payMethods.label), rows: filtered })} disabled={!filtered.length} />
             <Button onClick={openRecord}><FaPlus /> Record payment</Button>
           </>
         }
@@ -275,6 +281,7 @@ export default function PaymentsManager() {
         <PaymentDetail
           key={selected._id}
           payment={selected}
+          methodName={payMethods.label}
           onClose={() => setSelected(null)}
           onUpdated={(row) => {
             replace(row);
@@ -292,8 +299,8 @@ export default function PaymentsManager() {
         <CrudModal
           open
           title="Record a payment"
-          fields={(values) => recordFields(values, members, renewFee)}
-          initial={{ type: 'renewal', years: '1', method: 'cash', paidAt: toDateInput(new Date()), application: '' }}
+          fields={(values) => recordFields(values, members, renewFee, payMethods.methods)}
+          initial={{ type: 'renewal', years: '1', method: payMethods.methods.find((m) => m.kind === 'cash')?.key || '', paidAt: toDateInput(new Date()), application: '' }}
           onSubmit={record}
           submitLabel="Save as received"
           onClose={() => setRecording(false)}

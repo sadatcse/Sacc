@@ -5,9 +5,10 @@ import User, { MIN_PASSWORD_LENGTH } from '@/models/User';
 import StudentProfile from '@/models/StudentProfile';
 import { activateUser, createUser } from '@/server/services/user.service';
 import {
-  APPLICATION_STATUSES, BLOOD_GROUPS, GENDER_OPTIONS, MOBILE_PAYMENT_METHODS, PAYMENT_METHODS, PHOTO_MAX_BYTES, SHIFT_OPTIONS, SOFT_SKILLS, TSHIRT_SIZES,
+  APPLICATION_STATUSES, BLOOD_GROUPS, GENDER_OPTIONS, PHOTO_MAX_BYTES, SHIFT_OPTIONS, SOFT_SKILLS, TSHIRT_SIZES,
 } from '@/config/membership';
-import { getSetting } from '@/server/services/settings.service';
+import { getPaymentMethods, getSetting } from '@/server/services/settings.service';
+import { methodsFor, missingTransferFields } from '@/config/payment-methods';
 import { ensureMembershipPayment, removeMembershipPayment } from '@/server/services/payment.service';
 import { addYears, membershipPeriod } from '@/lib/membership';
 import { MEMBERSHIP_TERM_YEARS } from '@/config/membership';
@@ -36,7 +37,7 @@ async function readPhoto(file) {
   return { data, contentType, size: data.length };
 }
 
-function cleanApplication(form, settings) {
+function cleanApplication(form, settings, methods) {
   const get = (key, max = 200) => str(form.get(key), max);
   const data = {
     firstName: get('firstName', 60),
@@ -53,7 +54,7 @@ function cleanApplication(form, settings) {
     bloodGroup: get('bloodGroup', 5),
     facebook: get('facebook', 300),
     paymentMethod: get('paymentMethod', 20),
-    paymentFrom: get('paymentFrom', 30),
+    paymentFrom: get('paymentFrom', 60),
     transactionId: get('transactionId', 60),
     softSkills: form.getAll('softSkills').map((s) => str(s, 40)).filter((s) => SOFT_SKILLS.includes(s)),
     experience: get('experience', 3000),
@@ -65,9 +66,9 @@ function cleanApplication(form, settings) {
     ['studentId', 'Student ID'], ['department', 'Department'], ['batch', 'Batch'], ['shift', 'Shift'], ['gender', 'Gender'],
     ['tshirtSize', 'T-shirt size'], ['bloodGroup', 'Blood group'], ['paymentMethod', 'Payment method'],
   ].filter(([key]) => !data[key]).map(([, label]) => label);
-  const isMobilePayment = MOBILE_PAYMENT_METHODS.includes(data.paymentMethod);
-  if (isMobilePayment && !data.paymentFrom) missing.push('Number you paid from');
-  if (isMobilePayment && !data.transactionId) missing.push('Transaction ID');
+  // Payment methods switched on for joining fees in Dashboard → Payment Methods
+  const method = methodsFor(methods, 'membership').find((m) => m.key === data.paymentMethod);
+  if (method) missing.push(...missingTransferFields(method, data));
   if (missing.length) throw new HttpError(400, `Please fill in: ${missing.join(', ')}.`);
 
   if (!EMAIL_RE.test(data.personalEmail)) throw new HttpError(400, 'Enter a valid email address.');
@@ -77,7 +78,7 @@ function cleanApplication(form, settings) {
   if (!GENDER_OPTIONS.some((g) => g.value === data.gender)) throw new HttpError(400, 'Choose your gender.');
   if (!TSHIRT_SIZES.includes(data.tshirtSize)) throw new HttpError(400, 'Choose a T-shirt size.');
   if (!BLOOD_GROUPS.includes(data.bloodGroup)) throw new HttpError(400, 'Choose a blood group.');
-  if (!PAYMENT_METHODS.some((m) => m.value === data.paymentMethod)) throw new HttpError(400, 'Choose a payment method.');
+  if (!method) throw new HttpError(400, 'Choose one of the payment methods shown on the form.');
   if (data.facebook && !/^https?:\/\//i.test(data.facebook)) throw new HttpError(400, 'Facebook profile must be a link starting with https://');
   return data;
 }
@@ -120,7 +121,7 @@ async function memberAccount(data, password) {
 export async function submitApplication(form, { ip } = {}) {
   const settings = await getSetting('membership');
   if (!settings.open) throw new HttpError(403, 'Registration is closed right now.');
-  const data = cleanApplication(form, settings);
+  const data = cleanApplication(form, settings, await getPaymentMethods());
   const existing = await MembershipApplication.findOne({ studentId: data.studentId, status: { $in: ['draft', 'approved'] } }).select('status');
   if (existing) {
     throw new HttpError(409, existing.status === 'approved'

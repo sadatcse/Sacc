@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { FaCertificate, FaFilePdf, FaDownload, FaCheckCircle } from 'react-icons/fa';
 import { getServerSession } from '@/lib/auth-guard';
 import { getCertificatesForUser } from '@/server/services/certificate.service';
@@ -8,10 +9,12 @@ import EmptyState from '@/components/ui/EmptyState';
 export const metadata = { title: 'Certificates' };
 export const dynamic = 'force-dynamic';
 
-// The signed-in member's executive committee certificates (only they and admins can open the PDFs)
+// The signed-in alumnus' executive committee certificates (only they and admins can open the PDFs).
+// Not offered to club members (students) — they are sent back to their account.
 export default async function Page() {
   const session = await getServerSession();
-  const certificates = session ? await getCertificatesForUser(session._id) : [];
+  if (session?.role !== 'alumni') redirect('/account');
+  const certificates = await getCertificatesForUser(session._id);
 
   return (
     <>
