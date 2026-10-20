@@ -63,7 +63,13 @@ npm run build
 
 Then **Start App** (or **Restart**). Open your domain — the site should load.
 
-### Older servers (CentOS 7 / CloudLinux 7)
+### Older servers (CentOS 7 / CloudLinux 7–8)
+
+Next.js is pinned to **16.2.12** on purpose: it is the newest release whose native compiler runs on old servers (glibc 2.17+). Next.js 16.3 and newer need glibc 2.30 — on these servers they fall back to a WebAssembly compiler that runs out of memory. **Don't upgrade `next` past 16.2.x** while the site is hosted here.
+
+On a server with a per-process memory cap (CloudLinux), `npm run build` automatically builds gently: webpack, one process, 1 GB heap. Click **Stop App** before building so the running site doesn't use the same memory.
+
+### Older notes
 
 `npm run build` checks the server first. If its system library (glibc) is older than 2.29 — errors like *"Turbopack is not supported on this platform"* or *"GLIBC_2.29 not found"* — it automatically:
 
@@ -75,11 +81,13 @@ If even the WebAssembly image library can't run, the site still works: photos ar
 
 **Tip:** click **Stop App** before building — the running site counts against the same account memory limit as the build.
 
-### If the server can't build at all (too little memory)
+### If the server can't build at all (too little memory) — the way to deploy on cdc.multisports.com.bd
+
+This hosting account's memory limit is too small to run a Next.js build, so the site is built on GitHub instead.
 
 Build on Linux elsewhere and upload a package that already contains the build:
 
-1. GitHub → the repository → **Actions** → **cPanel package** → **Run workflow** → enter the site URL (e.g. `https://test.multisports.com.bd`) → wait ~3 minutes.
+1. Push your changes to `main` on GitHub — the **cPanel package** workflow then builds automatically (or: **Actions** → **cPanel package** → **Run workflow**, optionally with another site URL). The site URL comes from the repository variable `SITE_URL` (Settings → Secrets and variables → Actions → Variables), default `https://cdc.multisports.com.bd`. Wait ~3–5 minutes for the green tick.
 2. Open the finished run → download the artifact **usacc-cpanel-built** (a zip containing `usacc-cpanel-built.tar.gz`).
 3. cPanel → File Manager → upload `usacc-cpanel-built.tar.gz` into the application root → **Extract** (it replaces `.next`).
 4. **Run NPM Install** → **Restart**. Do **not** run build on the server (it would replace the uploaded build).
@@ -139,6 +147,7 @@ and set the same `CRON_SECRET` in the environment variables.
 
 | Problem | Fix |
 | --- | --- |
+| "eval: syntax error near unexpected token `)`" (from `nodevenv/…/bin/npm`) | An environment variable in Setup Node.js App was typed **with quote marks** (e.g. `SMTP_PASS` = `"abc)"`). Enter values **without quotes**. Passwords with `)` `(` `;` etc. are better saved in Dashboard → Settings → Email instead of an environment variable. |
 | "JavaScript heap out of memory" / "Out of memory error may be caused by hitting LVE limits" | Upload the current `scripts/build.js` + `next.config.mjs` (they disable the WebAssembly memory reservation and build with 1 worker), run **build** again. If it still fails, ask the host to raise the account's LVE memory limit to 2 GB+ for the build. |
 | "Cannot find module …/node_modules/next/dist/bin/next" / "Next.js is not installed for this app" | The `node_modules` link in the app folder is gone (it points into the Node.js virtual environment). **Run NPM Install**, then **build**. Don't delete `node_modules` in File Manager and don't upload one from your computer. |
 | "ENOENT … .next/server/preview-props.json" / "The build was made with Next.js X, but Next.js Y is installed" | The `.next` folder came from another computer or another Next.js version. Never upload `.next` from Windows — run **build** on the server (or use the GitHub "cPanel package"). `package.json` pins the exact versions, so after **Run NPM Install** the server matches. |

@@ -6,7 +6,7 @@
 # application root → Setup Node.js App → Run NPM Install → Restart. Do NOT run "build" on the server afterwards.
 #
 # Site URL (baked into the build): the manual input, else the repository variable SITE_URL
-# (Settings → Secrets and variables → Actions → Variables), else http://test.multisports.com.bd
+# (Settings → Secrets and variables → Actions → Variables), else https://cdc.multisports.com.bd
 name: cPanel package
 
 on:
@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       site_url:
-        description: 'Public site URL (no trailing slash), e.g. https://test.multisports.com.bd'
+        description: 'Public site URL (no trailing slash), e.g. https://cdc.multisports.com.bd'
         required: false
 
 concurrency:
@@ -35,7 +35,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_SITE_URL: ${{ inputs.site_url || vars.SITE_URL || 'http://test.multisports.com.bd' }}
+          NEXT_PUBLIC_SITE_URL: ${{ inputs.site_url || vars.SITE_URL || 'https://cdc.multisports.com.bd' }}
       - name: Pack (source + build)
         run: npm run pack:cpanel -- --with-build
       - uses: actions/upload-artifact@v4
