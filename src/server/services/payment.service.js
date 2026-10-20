@@ -1,19 +1,25 @@
 // Payments received by the club: joining fees, membership renewals and alumni donations (Dashboard → Payments,
 // Account → Payments). A verified renewal extends the member's application.expiresAt.
+import crypto from 'node:crypto';
 import Payment from '@/models/Payment';
 import MembershipApplication from '@/models/MembershipApplication';
 import User from '@/models/User';
-import { PAYMENT_STATUSES, PAYMENT_TYPES, RENEW_YEARS } from '@/config/membership';
+import { DONATION_REMINDER_DELAYS, PAYMENT_STATUSES, PAYMENT_TYPES, RENEW_YEARS } from '@/config/membership';
 import { methodsFor, missingTransferFields } from '@/config/payment-methods';
 import { addYears, membershipPeriod } from '@/lib/membership';
 import { getPaymentMethods, getSetting } from '@/server/services/settings.service';
 import { HttpError } from '@/server/http';
 import { assertId, notFound, str, toPlain } from '@/server/validate';
 import { escapeRegex } from '@/lib/utils';
+import { siteConfig } from '@/config/site';
+import { sendDonationReminder } from '@/server/services/mail.service';
 
 const TYPES = PAYMENT_TYPES.map((t) => t.value);
 const STATUSES = PAYMENT_STATUSES.map((s) => s.value);
 const MAX_DONATION = 10_000_000;
+const MIN_DONATION = 10;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^\+?[\d\s()-]{8,20}$/;
 
 const fullName = (app) => `${app.firstName} ${app.lastName}`.trim();
 const payerFromApplication = (app) => ({
@@ -138,6 +144,7 @@ export async function listPayments({ type, status, search, application } = {}) {
   const stats = {
     received: sum((id) => id.status === 'verified'),
     pending: sum((id) => id.status === 'pending'),
+    draft: sum((id) => id.status === 'draft'),
     ...Object.fromEntries(TYPES.map((t) => [t, sum((id) => id.type === t && id.status === 'verified')])),
   };
   return { rows: toPlain(rows), stats };
@@ -187,7 +194,7 @@ export async function reviewPayment(id, input = {}, { userId } = {}) {
   if (!payment) throw notFound('Payment');
   if ('adminNote' in input) payment.adminNote = str(input.adminNote, 1000);
   if ('status' in input && input.status !== payment.status) {
-    if (!STATUSES.includes(input.status)) throw new HttpError(400, 'Invalid status.');
+    if (!STATUSES.includes(input.status) || input.status === 'draft') throw new HttpError(400, 'Invalid status.');
     if (payment.type === 'membership') throw new HttpError(400, 'The joining fee follows its application — approve or reject the application instead.');
     if (payment.type === 'renewal') {
       if (input.status === 'verified') await applyRenewal(payment);
@@ -231,7 +238,7 @@ export async function myPayments(session) {
   const app = session.role === 'student' ? await ownApplication(session._id) : null;
   if (app) await ensureMembershipPayment(app);
   const [rows, settings, methods] = await Promise.all([
-    Payment.find({ user: session._id }).sort({ paidAt: -1, createdAt: -1 }).limit(200).lean(),
+    Payment.find({ user: session._id, status: { $ne: 'draft' } }).sort({ paidAt: -1, createdAt: -1 }).limit(200).lean(),
     getSetting('membership'),
     getPaymentMethods(),
   ]);
@@ -278,4 +285,125 @@ export async function submitOwnPayment(session, input = {}) {
   const payment = await Payment.create(data);
   const { adminNote: _note, ...plain } = payment.toObject();
   return toPlain(plain);
+}
+
+// ---------- public donation (Donate button on /alumni) ----------
+// 1. "Continue to payment" → startDonation: a 'draft' donation with the donor's details and a resumeToken
+// 2. "Submit" → submitDonation: the draft gets the payment details and becomes 'pending' (an admin checks it)
+// 3. Drafts never finished get reminder emails (sendDonationReminders) with /alumni?donate=<token>
+// Only a signed-in donor's own account is linked (an email typed by a visitor never attaches it to someone's account).
+
+const newToken = () => crypto.randomBytes(24).toString('hex');
+const cleanToken = (value) => (/^[a-f0-9]{48}$/.test(String(value || '')) ? String(value) : '');
+const reference = (id) => String(id).slice(-8).toUpperCase();
+export const resumeLink = (token) => `${siteConfig.url.replace(/\/$/, '')}/alumni?donate=${token}`;
+
+// { name, email, phone, batch?, studentId?, amount, note? }
+function cleanDonor(input) {
+  const donor = {
+    name: str(input.name, 120),
+    email: str(input.email, 160).toLowerCase(),
+    phone: str(input.phone, 30),
+    batch: str(input.batch, 40),
+    studentId: str(input.studentId, 40),
+    note: str(input.note, 1000),
+  };
+  const missing = [!donor.name && 'Name', !donor.email && 'Email', !donor.phone && 'Phone'].filter(Boolean);
+  if (missing.length) throw new HttpError(400, `Please fill in: ${missing.join(', ')}.`);
+  if (!EMAIL_RE.test(donor.email)) throw new HttpError(400, 'Enter a valid email address.');
+  if (!PHONE_RE.test(donor.phone)) throw new HttpError(400, 'Enter a valid phone number.');
+  const amount = Math.round(Number(input.amount));
+  if (!Number.isFinite(amount) || amount < MIN_DONATION || amount > MAX_DONATION) throw new HttpError(400, `Enter an amount of at least ${MIN_DONATION} BDT.`);
+  return { ...donor, amount };
+}
+
+const findDraft = (token) => (token ? Payment.findOne({ resumeToken: token, type: 'donation' }).select('+resumeToken') : null);
+
+// Step 1: saves (or updates, when the donor went back) the unfinished donation. Returns { token, reference }.
+export async function startDonation(input = {}, { session } = {}) {
+  const data = cleanDonor(input);
+  const draft = await findDraft(cleanToken(input.token));
+  if (draft?.status === 'draft') {
+    Object.assign(draft, data, { paidAt: new Date() });
+    if (session?._id) draft.user = session._id;
+    await draft.save();
+    return { token: draft.resumeToken, reference: reference(draft._id) };
+  }
+  const token = newToken();
+  const payment = await Payment.create({ type: 'donation', status: 'draft', ...data, resumeToken: token, ...(session?._id && { user: session._id }) });
+  return { token, reference: reference(payment._id) };
+}
+
+// Step 2: { token?, ...details, method, paidFrom?, transactionId? } → 'pending'
+export async function submitDonation(input = {}, { session } = {}) {
+  const data = cleanDonor(input);
+  const transfer = await cleanTransfer(input, { purpose: 'donation' });
+  await assertNewTransaction(transfer.transactionId);
+  let payment = await findDraft(cleanToken(input.token));
+  if (payment && payment.status !== 'draft') throw new HttpError(409, 'This donation was already submitted — thank you! The committee will confirm it soon.');
+  const fields = { ...data, ...transfer, note: transfer.note || data.note, status: 'pending', paidAt: new Date(), ...(session?._id && { user: session._id }) };
+  if (payment) {
+    Object.assign(payment, fields);
+    payment.resumeToken = undefined; // the reminder link stops working once it's done
+    await payment.save();
+  } else {
+    payment = await Payment.create({ type: 'donation', ...fields });
+  }
+  return toPlain({ _id: payment._id, amount: payment.amount, method: payment.method, status: payment.status, reference: reference(payment._id) });
+}
+
+// /alumni?donate=<token>: the unfinished donation to continue (the donor's own details only), or null
+export async function getDonationDraft(token) {
+  const clean = cleanToken(token);
+  if (!clean) return null;
+  const draft = await Payment.findOne({ resumeToken: clean, type: 'donation', status: 'draft' }).select('name email phone batch amount note').lean();
+  return draft && { token: clean, name: draft.name, email: draft.email, phone: draft.phone, batch: draft.batch, amount: draft.amount, note: draft.note };
+}
+
+// ---------- reminders for unfinished donations ----------
+
+async function remind(payment, { auto, step }) {
+  const result = await sendDonationReminder(payment, { step, link: resumeLink(payment.resumeToken) });
+  await Payment.updateOne({ _id: payment._id }, { $push: { reminders: { at: new Date(), auto, sent: result.sent, error: result.sent ? '' : result.error || '' } } });
+  return result;
+}
+
+// Sends the due reminders: 30 min, 3 days and 7 days after the donor started (DONATION_REMINDER_DELAYS).
+// Runs every few minutes (instrumentation.js) and from GET /api/cron/donation-reminders. Each step is claimed
+// atomically, so two servers never email twice; a draft that is already past several steps gets only one email.
+export async function sendDonationReminders(now = Date.now()) {
+  const total = DONATION_REMINDER_DELAYS.length;
+  const drafts = await Payment.find({
+    type: 'donation',
+    status: 'draft',
+    email: { $ne: '' },
+    remindersSent: { $lt: total },
+    createdAt: { $lte: new Date(now - DONATION_REMINDER_DELAYS[0]) },
+  })
+    .select('+resumeToken name email amount remindersSent createdAt')
+    .limit(200)
+    .lean();
+  let sent = 0;
+  for (const draft of drafts) {
+    const age = now - new Date(draft.createdAt).getTime();
+    const due = DONATION_REMINDER_DELAYS.filter((ms) => age >= ms).length; // steps whose time has come
+    if (due <= draft.remindersSent || !draft.resumeToken) continue;
+    const claimed = await Payment.updateOne({ _id: draft._id, status: 'draft', remindersSent: draft.remindersSent }, { $set: { remindersSent: due } });
+    if (!claimed.modifiedCount) continue;
+    const result = await remind(draft, { auto: true, step: due });
+    if (result.sent) sent++;
+  }
+  return { checked: drafts.length, sent };
+}
+
+// Admin: "Send reminder now" on an unfinished donation
+export async function remindDonationNow(id) {
+  assertId(id, 'payment');
+  const payment = await Payment.findById(id).select('+resumeToken').lean();
+  if (!payment) throw notFound('Payment');
+  if (payment.status !== 'draft' || !payment.resumeToken) throw new HttpError(400, 'Only unfinished donations get reminders.');
+  if (!payment.email) throw new HttpError(400, 'This donor gave no email address.');
+  const result = await remind(payment, { auto: false, step: Math.min(payment.remindersSent + 1, DONATION_REMINDER_DELAYS.length) });
+  if (!result.sent) throw new HttpError(400, `Could not send: ${result.error}`);
+  return toPlain(await Payment.findById(id).populate('reviewedBy recordedBy', 'name').lean());
 }

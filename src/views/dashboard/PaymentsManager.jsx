@@ -1,12 +1,12 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { FaMoneyBillWave, FaHourglassHalf, FaRedo, FaHandHoldingHeart, FaPlus, FaIdCard } from 'react-icons/fa';
+import { FaMoneyBillWave, FaHourglassHalf, FaRedo, FaHandHoldingHeart, FaPlus, FaIdCard, FaEnvelope, FaRegClock } from 'react-icons/fa';
 import useApi from '@/hooks/useApi';
 import usePagination from '@/hooks/usePagination';
 import { apiSecure, apiError } from '@/lib/api-client';
 import { formatDate } from '@/lib/utils';
 import { toDateInput } from '@/lib/membership';
-import { PAYMENT_STATUSES, PAYMENT_TYPES, RENEW_YEARS } from '@/config/membership';
+import { DONATION_REMINDER_DELAYS, PAYMENT_STATUSES, PAYMENT_TYPES, RENEW_YEARS } from '@/config/membership';
 import { kindOf } from '@/config/payment-methods';
 import usePaymentMethods from '@/hooks/usePaymentMethods';
 import PageTitle from '@/components/dashboard/PageTitle';
@@ -46,12 +46,57 @@ function Row({ label, children }) {
   );
 }
 
+const REMINDER_LABELS = ['after 30 minutes', 'after 3 days', 'after 7 days'];
+
+// Reminder emails of an unfinished donation: what was sent, and when the next automatic one goes out
+function Reminders({ payment }) {
+  const log = payment.reminders || [];
+  const nextStep = payment.remindersSent || 0;
+  const nextAt = nextStep < DONATION_REMINDER_DELAYS.length && new Date(new Date(payment.createdAt).getTime() + DONATION_REMINDER_DELAYS[nextStep]);
+  return (
+    <div className="space-y-1 text-sm">
+      {log.length ? (
+        log.map((r, i) => (
+          <p key={i} className="flex flex-wrap items-center gap-2">
+            <FaEnvelope className={r.sent ? 'text-green-600' : 'text-red-500'} aria-hidden />
+            {formatDate(r.at, true)} · {r.auto ? 'automatic' : 'sent by an admin'}
+            {!r.sent && <span className="text-xs text-red-600 dark:text-red-400">(not sent: {r.error || 'unknown error'})</span>}
+          </p>
+        ))
+      ) : (
+        <p className="text-subtle">None yet.</p>
+      )}
+      {payment.email && nextAt && (
+        <p className="flex items-center gap-2 text-xs text-subtle">
+          <FaRegClock aria-hidden /> Next automatic reminder {REMINDER_LABELS[nextStep]}: {nextAt < new Date() ? 'in a few minutes' : formatDate(nextAt, true)}
+        </p>
+      )}
+      {payment.email && !nextAt && <p className="text-xs text-subtle">All 3 automatic reminders have been sent.</p>}
+      {!payment.email && <p className="text-xs text-subtle">No email address — reminders can’t be sent.</p>}
+    </div>
+  );
+}
+
 function PaymentDetail({ payment, methodName, onUpdated, onDeleted, onClose }) {
   const [note, setNote] = useState(payment.adminNote || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const fixed = payment.type === 'membership'; // follows its application
+  const draft = payment.status === 'draft'; // donation started on /alumni, payment never submitted
+
+  const sendReminder = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const res = await apiSecure.post(`/payments/${payment._id}/remind`);
+      onUpdated(res.data.data);
+    } catch (err) {
+      setError(apiError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const update = async (status) => {
     setBusy(true);
@@ -88,12 +133,18 @@ function PaymentDetail({ payment, methodName, onUpdated, onDeleted, onClose }) {
           <>
             {!fixed && <Button variant="danger" className="mr-auto" onClick={() => setConfirmDelete(true)} disabled={busy}>Delete</Button>}
             <Button variant="secondary" onClick={() => update()} disabled={busy}>Save note</Button>
-            {!fixed && payment.status !== 'rejected' && <Button variant="secondary" onClick={() => update('rejected')} disabled={busy}>Reject</Button>}
+            {draft && payment.email && <Button variant="secondary" onClick={sendReminder} disabled={busy}><FaEnvelope /> Send reminder now</Button>}
+            {!fixed && !draft && payment.status !== 'rejected' && <Button variant="secondary" onClick={() => update('rejected')} disabled={busy}>Reject</Button>}
             {!fixed && payment.status !== 'verified' && <Button onClick={() => update('verified')} disabled={busy}>Mark as received</Button>}
           </>
         }
       >
         <Alert type="error" className="mb-3">{error}</Alert>
+        {draft && (
+          <Alert type="warning" className="mb-3">
+            The donor filled in their details but didn’t submit a payment. Reminder emails go out automatically. If they paid another way, check it and use “Mark as received”.
+          </Alert>
+        )}
         {payment.status === 'pending' && payment.type === 'renewal' && (
           <Alert type="info" className="mb-3">Check the transaction, then “Mark as received” — the membership is extended by {payment.years} year{payment.years > 1 ? 's' : ''}.</Alert>
         )}
@@ -112,6 +163,7 @@ function PaymentDetail({ payment, methodName, onUpdated, onDeleted, onClose }) {
           <Row label="Date">{formatDate(payment.paidAt, true)}</Row>
           {payment.periodEnd && <Row label="Membership period">{formatDate(payment.periodStart)} – {formatDate(payment.periodEnd)}</Row>}
           {payment.note && <Row label="Message">{payment.note}</Row>}
+          {(draft || payment.reminders?.length > 0) && <Row label="Reminders"><Reminders payment={payment} /></Row>}
           <Row label="Checked by">{payment.reviewedBy?.name && `${payment.reviewedBy.name} · ${formatDate(payment.reviewedAt)}`}{payment.recordedBy && ' (recorded by admin)'}</Row>
         </dl>
         {fixed && <p className="mt-3 text-xs text-subtle">The joining fee is recorded from the membership application and follows its approval.</p>}
@@ -251,6 +303,12 @@ export default function PaymentsManager() {
         <StatCard label="Renewals" value={s && bdt(s.renewal.amount)} hint={s && `${s.renewal.count} renewals`} icon={FaRedo} tone="gray" loading={loading} />
         <StatCard label="Donations" value={s && bdt(s.donation.amount)} hint={s && `${s.donation.count} donations`} icon={FaHandHoldingHeart} tone="amber" loading={loading} />
       </StatGrid>
+
+      {s?.draft?.count > 0 && (
+        <button type="button" onClick={() => setStatus('draft')} className="mb-4 flex w-full items-center gap-2 rounded-lg border border-line/15 bg-surface-2 px-4 py-3 text-left text-sm text-body">
+          <FaHandHoldingHeart aria-hidden className="text-orange-500" /> {s.draft.count} donation{s.draft.count > 1 ? 's were' : ' was'} started but not completed ({bdt(s.draft.amount)}) — the donors get reminder emails. Show them →
+        </button>
+      )}
 
       {s?.pending.count > 0 && (
         <button type="button" onClick={() => setStatus('pending')} className="mb-4 flex w-full items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-left text-sm text-amber-800 dark:text-amber-200">

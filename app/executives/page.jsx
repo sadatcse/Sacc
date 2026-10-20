@@ -16,9 +16,12 @@ function resolveYear(years, value) {
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ searchParams }) {
-  const year = resolveYear(await getYears(), (await searchParams).year);
+  const years = await getYears();
+  const year = resolveYear(years, (await searchParams).year);
   return {
     title: `Executives ${year}`,
+    // The newest committee lives at /executives; older years at /executives?year=…
+    alternates: { canonical: year === years[0] || !year ? '/executives' : `/executives?year=${year}` },
     description: `The ${year} executive committee of the ${siteConfig.name} — faculty advisors and student executives.`,
   };
 }

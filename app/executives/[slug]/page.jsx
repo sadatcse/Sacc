@@ -2,6 +2,8 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { FaEnvelope, FaPhoneAlt, FaUniversity, FaIdBadge, FaBuilding } from 'react-icons/fa';
 import { siteConfig } from '@/config/site';
+import JsonLd from '@/components/seo/JsonLd';
+import { SITE_URL, absoluteUrl } from '@/lib/seo';
 import { getLatestYear, getPerson, getPositionsFor } from '@/server/services/executive.service';
 import DarkPageHeader from '@/components/ui/DarkPageHeader';
 import SocialLinks from '@/components/ui/SocialLinks';
@@ -17,9 +19,14 @@ export async function generateMetadata({ params }) {
   const person = await getPerson(slug);
   if (!person) return { title: 'Executive not found' };
   const [latest] = await getPositionsFor(person._id);
+  const description = latest ? `${person.name} — ${latest.role}, ${siteConfig.name} ${latest.year}.` : `${person.name} — ${siteConfig.name}.`;
+  const images = person.photo ? [{ url: absoluteUrl(person.photo), alt: person.name }] : undefined;
   return {
     title: person.name,
-    description: latest ? `${person.name} — ${latest.role}, ${siteConfig.name} ${latest.year}.` : person.name,
+    description,
+    alternates: { canonical: `/executives/${person.slug}` },
+    openGraph: { title: person.name, description, type: 'profile', url: `/executives/${person.slug}`, images },
+    twitter: { card: images ? 'summary_large_image' : 'summary', title: person.name, description, images },
   };
 }
 
@@ -59,6 +66,17 @@ export default async function Page({ params, searchParams }) {
 
   return (
     <MotionRoot>
+      <JsonLd
+        data={{
+          '@type': 'Person',
+          name: person.name,
+          url: `${SITE_URL}/executives/${person.slug}`,
+          ...(person.photo && { image: absoluteUrl(person.photo) }),
+          ...(latest && { jobTitle: latest.role }),
+          affiliation: { '@type': 'Organization', name: siteConfig.name, url: SITE_URL },
+          ...(person.links?.linkedin && { sameAs: [person.links.linkedin] }),
+        }}
+      />
       <div className="min-h-[70vh] bg-canvas text-body">
         <DarkPageHeader
           breadcrumbs={[

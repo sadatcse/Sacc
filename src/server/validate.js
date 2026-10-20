@@ -49,6 +49,11 @@ const CLEANERS = {
   text: (v) => str(v, 200),
   longtext: (v) => str(v, 5000),
   url: (v) => str(v, 500),
+  // Photo: an uploaded / site path (/uploads/…, /news/…) or a full http(s) link — anything else is dropped
+  image: (v) => {
+    const s = str(v, 500);
+    return /^\/(?!\/)\S*$/.test(s) || /^https?:\/\/\S+$/i.test(s) ? s : '';
+  },
   number: (v) => (v === '' || v === null || v === undefined || Number.isNaN(Number(v)) ? undefined : Number(v)),
   boolean: (v) => v === true || v === 'true' || v === 'on',
   list: (v) => list(v),

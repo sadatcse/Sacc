@@ -24,7 +24,7 @@ const FOUNDING_FIELDS = [
   { name: 'founding.time', label: 'Time', placeholder: '11:00 AM' },
   { name: 'founding.venue', label: 'Venue', placeholder: 'Prof. M A Matin Building (Room 2103)' },
   { name: 'founding.organizer', label: 'Organized by', placeholder: 'Department of CSE' },
-  { name: 'founding.photo', label: 'Photo URL', full: true, placeholder: '/about/inauguration-2024.jpg', help: 'Put the photo in public/about/ and use /about/<file>.jpg' },
+  { name: 'founding.photo', label: 'Photo', type: 'image', folder: 'about', aspect: 'wide', placeholder: '/about/inauguration-2024.jpg or https://…', help: 'Upload a photo or paste a link.' },
   { name: 'founding.text', label: 'Story', type: 'textarea', rows: 4 },
 ];
 
@@ -37,6 +37,7 @@ const TIMELINE_COLUMNS = [
   { key: 'year', label: 'Year', placeholder: '2026', className: 'max-w-[6rem]' },
   { key: 'title', label: 'Title', placeholder: 'Club Founded' },
   { key: 'text', label: 'Description', multiline: true, className: 'basis-full' },
+  { key: 'link', label: 'Link (optional) — clicking the card opens it', placeholder: '/news/club-inauguration-2024 or https://…', className: 'basis-full' },
 ];
 
 // Edits the public /about page (Setting 'about')

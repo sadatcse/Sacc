@@ -6,10 +6,12 @@ import mongoose from 'mongoose';
 //   donation   → an alumnus gives any amount
 // Payments sent by members start 'pending' until an admin checks the transaction; a verified renewal moves the
 // application's expiresAt forward (periodStart → periodEnd).
+// 'draft' = a donation started on /alumni (details given) but never finished: the donor gets reminder emails
+// 30 min, 3 days and 7 days later with a link (resumeToken) back to the payment step.
 const PaymentSchema = new mongoose.Schema(
   {
     type: { type: String, enum: ['membership', 'renewal', 'donation'], required: true, index: true },
-    status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending', index: true },
+    status: { type: String, enum: ['draft', 'pending', 'verified', 'rejected'], default: 'pending', index: true },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
     application: { type: mongoose.Schema.Types.ObjectId, ref: 'MembershipApplication', index: true },
     // Snapshot of the payer, so the record stays readable if the account changes
@@ -31,9 +33,15 @@ const PaymentSchema = new mongoose.Schema(
     recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // added by an admin (e.g. cash)
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     reviewedAt: { type: Date },
+    // Unfinished donations (status 'draft')
+    resumeToken: { type: String, select: false, index: { unique: true, sparse: true } }, // /alumni?donate=<token>
+    remindersSent: { type: Number, default: 0 }, // automatic reminders sent so far (0–3)
+    reminders: { type: [{ at: Date, auto: Boolean, sent: Boolean, error: String, _id: false }], default: undefined },
   },
   { timestamps: true }
 );
+
+PaymentSchema.index({ status: 1, remindersSent: 1, createdAt: 1 });
 
 // One joining-fee record per application
 PaymentSchema.index({ application: 1, type: 1 }, { unique: true, partialFilterExpression: { type: 'membership' } });

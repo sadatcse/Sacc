@@ -12,14 +12,40 @@ export const metadata = {
     template: `%s | ${siteConfig.shortName}`,
   },
   description: siteConfig.description,
+  applicationName: siteConfig.name,
+  keywords: [
+    'University of South Asia', 'South Asia Computer Club', 'SACC', 'USACC', 'computer club', 'CSE club', 'Bangladesh',
+    'Dhaka', 'programming contest', 'competitive programming', 'workshop', 'seminar', 'hackathon', 'computer science',
+  ],
+  authors: [{ name: siteConfig.name, url: siteConfig.url }],
+  creator: siteConfig.name,
+  publisher: siteConfig.name,
+  category: 'education',
+  alternates: { canonical: '/' },
+  formatDetection: { telephone: false, email: false, address: false },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 },
+  },
+  // The preview image comes from app/opengraph-image.jsx (pages with a photo of their own override it)
   openGraph: {
     title: `${siteConfig.name} — ${siteConfig.slogan}`,
     description: siteConfig.description,
-    url: siteConfig.url,
+    url: '/',
     siteName: siteConfig.name,
     locale: 'en_US',
     type: 'website',
-    images: [{ url: '/logo.png', width: 270, height: 251, alt: siteConfig.name }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${siteConfig.name} — ${siteConfig.slogan}`,
+    description: siteConfig.description,
+  },
+  // Search Console / Bing Webmaster verification codes (optional, from .env)
+  verification: {
+    ...(process.env.GOOGLE_SITE_VERIFICATION && { google: process.env.GOOGLE_SITE_VERIFICATION }),
+    ...(process.env.BING_SITE_VERIFICATION && { other: { 'msvalidate.01': process.env.BING_SITE_VERIFICATION } }),
   },
 };
 

@@ -1,5 +1,6 @@
 import Image from 'next/image';
-import { FaBullseye, FaEye, FaArrowRight, FaRegCalendarAlt, FaRegClock, FaMapMarkerAlt, FaUniversity, FaFlag } from 'react-icons/fa';
+import Link from 'next/link';
+import { FaBullseye, FaEye, FaArrowRight, FaRegCalendarAlt, FaRegClock, FaMapMarkerAlt, FaUniversity, FaFlag, FaExternalLinkAlt } from 'react-icons/fa';
 import { getSetting } from '@/server/services/settings.service';
 import DarkPageHeader from '@/components/ui/DarkPageHeader';
 import { HomeButton } from '@/components/home/ui';
@@ -7,12 +8,40 @@ import { Counter, MotionRoot, Reveal, Stagger, StaggerItem } from '@/components/
 import { cn } from '@/lib/utils';
 
 export const metadata = {
+  alternates: { canonical: '/about' },
   title: 'About',
   description: 'Who we are — the mission, vision and journey of the South Asia Computer Club.',
 };
 
 // Content is edited in Dashboard → About Page
 export const dynamic = 'force-dynamic';
+
+// A timeline card; with a link the whole card is clickable (pages on this site open in place, outside links in a new tab)
+function TimelineCard({ item }) {
+  const card = 'relative block rounded-2xl border border-line/10 bg-gradient-to-br from-surface to-canvas-2 p-6 transition-all duration-300';
+  const body = (
+    <>
+      <span className="inline-block rounded-full bg-orange-500/15 px-3 py-0.5 text-xs font-bold tracking-wider text-orange-600 dark:text-orange-400">{item.year}</span>
+      <h3 className="mt-3 text-lg font-bold text-ink transition-colors group-hover:text-orange-600 dark:group-hover:text-orange-400">{item.title}</h3>
+      {item.text && <p className="mt-2 text-sm leading-relaxed text-muted">{item.text}</p>}
+    </>
+  );
+  if (!item.link) return <div className={cn(card, 'hover:border-orange-500/60')}>{body}</div>;
+
+  const external = /^https?:/i.test(item.link);
+  const Icon = external ? FaExternalLinkAlt : FaArrowRight;
+  const linked = cn(card, 'group pr-12 hover:-translate-y-0.5 hover:border-orange-500/60 hover:shadow-lg hover:shadow-orange-500/10');
+  const icon = (
+    <span className="absolute right-5 top-6 flex h-7 w-7 items-center justify-center rounded-full bg-orange-500/10 text-xs text-orange-600 transition-colors group-hover:bg-orange-500 group-hover:text-white dark:text-orange-400" aria-hidden>
+      <Icon />
+    </span>
+  );
+  return external ? (
+    <a href={item.link} target="_blank" rel="noopener noreferrer" className={linked}>{body}{icon}</a>
+  ) : (
+    <Link href={item.link} className={linked}>{body}{icon}</Link>
+  );
+}
 
 // "500+" → <Counter value={500} suffix="+" />; anything else is shown as-is
 function StatValue({ value }) {
@@ -143,11 +172,7 @@ export default async function Page() {
                         aria-hidden
                       />
                       <Reveal x={right ? 40 : -40} y={0} className={cn(right ? 'md:col-start-2' : 'md:col-start-1 md:row-start-1')}>
-                        <div className="rounded-2xl border border-line/10 bg-gradient-to-br from-surface to-canvas-2 p-6 transition-colors hover:border-orange-500/60">
-                          <span className="inline-block rounded-full bg-orange-500/15 px-3 py-0.5 text-xs font-bold tracking-wider text-orange-600 dark:text-orange-400">{item.year}</span>
-                          <h3 className="mt-3 text-lg font-bold text-ink">{item.title}</h3>
-                          {item.text && <p className="mt-2 text-sm leading-relaxed text-muted">{item.text}</p>}
-                        </div>
+                        <TimelineCard item={item} />
                       </Reveal>
                     </li>
                   );

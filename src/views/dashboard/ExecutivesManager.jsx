@@ -49,7 +49,7 @@ const personFields = (values) => [
   { name: 'personalEmail', label: 'Personal email', type: 'email', help: 'Never shown on the website.' },
   { type: 'heading', label: 'Profile' },
   { name: 'slug', label: 'URL slug', placeholder: 'auto from name', help: 'Profile URL: /executives/<slug>' },
-  { name: 'photo', label: 'Photo URL', type: 'url' },
+  { name: 'photo', label: 'Photo', type: 'image', folder: 'executives', help: 'Square photos look best (e.g. 600 × 600).' },
   { name: 'bio', label: 'Bio', type: 'textarea', rows: 3 },
   { type: 'heading', label: 'Links (public)' },
   ...SOCIAL_LINKS.map((l) => ({

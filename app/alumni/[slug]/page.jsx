@@ -30,6 +30,7 @@ export async function generateMetadata({ params }) {
   return {
     title: `${a.name} — Alumni`,
     description: `${a.name}${role ? `, ${role}` : ''}${a.batch ? ` · ${a.batch}` : ''} — ${siteConfig.name} alumni.`,
+    robots: { index: false, follow: false }, // members-only page
     ...(a.photo && { openGraph: { images: [a.photo] } }),
   };
 }

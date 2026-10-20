@@ -9,6 +9,7 @@ import DarkPageHeader from '@/components/ui/DarkPageHeader';
 import ContactForm from '@/components/forms/ContactForm';
 
 export const metadata = {
+  alternates: { canonical: '/contact' },
   title: 'Contact Us',
   description: `Contact the ${siteConfig.name} — phone, email, campus address and map.`,
 };

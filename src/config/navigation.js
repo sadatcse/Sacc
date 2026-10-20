@@ -1,5 +1,5 @@
 import { TbLayoutDashboard } from 'react-icons/tb';
-import { FaGlobe, FaEnvelope, FaNewspaper, FaUsers, FaUserTie, FaUserGraduate, FaIdCard, FaLock, FaInfoCircle, FaUserPlus, FaCog, FaSignInAlt, FaHistory, FaImages, FaMoneyBillWave, FaCertificate, FaAward, FaWallet, FaQrcode } from 'react-icons/fa';
+import { FaGlobe, FaEnvelope, FaNewspaper, FaUsers, FaUserTie, FaUserGraduate, FaIdCard, FaLock, FaInfoCircle, FaUserPlus, FaCog, FaSignInAlt, FaHistory, FaImages, FaMoneyBillWave, FaCertificate, FaAward, FaWallet, FaQrcode, FaHandHoldingHeart } from 'react-icons/fa';
 
 // Public site navigation (Navbar + Footer)
 export const mainNav = [
@@ -85,7 +85,8 @@ export const accountNav = [
   { label: 'Profile', href: '/account', icon: FaIdCard },
   { label: 'Password', href: '/account/security', icon: FaLock },
   { label: 'Club Members', href: '/account/members', icon: FaUsers, roles: ['student'] },
-  { label: 'Payments', href: '/account/payments', icon: FaMoneyBillWave, roles: ['student', 'alumni'] },
+  { label: 'Payments', href: '/account/payments', icon: FaMoneyBillWave, roles: ['student'] },
+  { label: 'Donate', href: '/account/payments', icon: FaHandHoldingHeart, roles: ['alumni'] }, // same page, donation form for alumni
   { label: 'Certificates', href: '/account/certificates', icon: FaCertificate, roles: ['alumni'] },
 ];
 

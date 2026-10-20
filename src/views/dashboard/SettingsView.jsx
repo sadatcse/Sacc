@@ -189,6 +189,7 @@ const SMTP_FIELDS = [
   { name: 'notify.accountReceived', label: 'Alumni / faculty sign-up → "waiting for approval"', type: 'checkbox' },
   { name: 'notify.accountApproved', label: 'Account approved → user', type: 'checkbox' },
   { name: 'notify.accountAdmin', label: 'New account to approve → club inbox', type: 'checkbox' },
+  { name: 'notify.donationReminder', label: 'Unfinished donation → reminders to the donor (30 min, 3 days, 7 days)', type: 'checkbox' },
 ];
 
 // Dashboard → Settings → Email: SMTP login, sender, which emails are sent, and a test button

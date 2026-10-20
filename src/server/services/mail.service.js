@@ -31,6 +31,8 @@ function transportFor(cfg) {
         host: cfg.host,
         port: cfg.port,
         secure: cfg.secure,
+        // Port 587 (STARTTLS): refuse to log in unless the connection is upgraded to TLS first
+        requireTLS: !cfg.secure && Number(cfg.port) === 587,
         auth: { user: cfg.user, pass: cfg.pass },
         connectionTimeout: 15000,
         greetingTimeout: 10000,
@@ -338,4 +340,48 @@ export async function sendTestEmail(to) {
       text: 'Your email settings work!',
     }
   );
+}
+
+// ---------- donations ----------
+
+// Reminder for a donation started on /alumni but never paid (step 1 = after 30 min, 2 = 3 days, 3 = 7 days)
+const REMINDER_COPY = {
+  1: {
+    subject: 'Did something go wrong with your donation?',
+    heading: 'Having trouble with your donation?',
+    intro: 'You started a donation to the club but the payment wasn’t submitted. If something went wrong — a failed transfer, a missing number, or the page closed — you can pick up right where you left off.',
+  },
+  2: {
+    subject: 'Your donation is still waiting',
+    heading: 'Your donation is still waiting',
+    intro: 'A few days ago you started a donation to the club. It isn’t complete yet — it only takes a minute to finish the payment.',
+  },
+  3: {
+    subject: 'Last reminder about your donation',
+    heading: 'One last reminder',
+    intro: 'This is our last reminder about the donation you started. If you’ve changed your mind, no problem — just ignore this email.',
+  },
+};
+
+export async function sendDonationReminder(payment, { step = 1, link }) {
+  const cfg = await getMailConfig();
+  if (!cfg.notify.donationReminder) return { sent: false, error: 'Turned off' };
+  const copy = REMINDER_COPY[Math.min(Math.max(step, 1), 3)];
+  const amount = `${Number(payment.amount || 0).toLocaleString('en-US')} BDT`;
+  const first = String(payment.name || '').split(' ')[0];
+  return send(cfg, {
+    to: payment.email,
+    subject: `${copy.subject} — ${siteConfig.shortName}`,
+    html: layout({
+      heading: copy.heading,
+      intro: `${first ? `Hi ${e(first)}, ` : ''}${e(copy.intro)}`,
+      body: `${table([
+        ['Donation', amount],
+        ['Reference', String(payment._id).slice(-8).toUpperCase()],
+      ])}<p style="font-size:13px;color:#71717a;margin-top:14px">Already paid? Simply reply to this email with your transaction ID and we’ll match it. Questions or a problem with the payment? Reply and the committee will help.</p>`,
+      button: { label: 'Complete my donation', href: link },
+    }),
+    text: toText(copy.heading, '', copy.intro, '', `Donation: ${amount}`, `Complete it here: ${link}`, '', 'Already paid? Reply with your transaction ID.'),
+    replyTo: cfg.adminEmail || undefined,
+  });
 }

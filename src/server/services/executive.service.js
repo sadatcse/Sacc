@@ -8,7 +8,7 @@ import { assertId, clean, makeSlug, notFound, str, toPlain } from '@/server/vali
 import { alumniIdsForExecutives } from '@/server/services/alumni-request.service';
 
 const PERSON_FIELDS = {
-  name: 'text', photo: 'url', studentId: 'text', batch: 'text', department: 'text', designation: 'text',
+  name: 'text', photo: 'image', studentId: 'text', batch: 'text', department: 'text', designation: 'text',
   employeeId: 'text', school: 'text', office: 'text', officePhone: 'text', phone: 'text', personalEmail: 'text', bio: 'longtext', links: 'links',
 };
 
@@ -91,6 +91,13 @@ export async function getPositionsFor(personId) {
   await connectDB();
   const rows = await CommitteePosition.find({ executive: personId }).sort({ year: -1, order: 1 }).lean();
   return toPlain(rows);
+}
+
+// Profiles listed in the sitemap: everyone who has held a committee position
+export async function getSitemapPeople() {
+  await connectDB();
+  const ids = await CommitteePosition.distinct('executive');
+  return toPlain(await Executive.find({ _id: { $in: ids } }).select('slug photo updatedAt').lean());
 }
 
 // ---------- admin: people ----------

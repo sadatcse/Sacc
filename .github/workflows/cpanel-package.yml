@@ -1,0 +1,45 @@
+# Builds the site on Linux and produces a ready-to-upload cPanel package (source + finished .next build) —
+# for hosting accounts whose memory limit is too small to run `npm run build` themselves.
+#
+# Runs on every push to main (or manually: Actions → "cPanel package" → Run workflow).
+# Then: open the run → download the artifact "usacc-cpanel-built" → cPanel File Manager → upload + extract in the
+# application root → Setup Node.js App → Run NPM Install → Restart. Do NOT run "build" on the server afterwards.
+#
+# Site URL (baked into the build): the manual input, else the repository variable SITE_URL
+# (Settings → Secrets and variables → Actions → Variables), else http://test.multisports.com.bd
+name: cPanel package
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      site_url:
+        description: 'Public site URL (no trailing slash), e.g. https://test.multisports.com.bd'
+        required: false
+
+concurrency:
+  group: cpanel-package
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ inputs.site_url || vars.SITE_URL || 'http://test.multisports.com.bd' }}
+      - name: Pack (source + build)
+        run: npm run pack:cpanel -- --with-build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: usacc-cpanel-built
+          path: deploy/usacc-cpanel-built.tar.gz
+          retention-days: 14

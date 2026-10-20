@@ -24,7 +24,10 @@ export const APPLICATION_STATUSES = [
   { value: 'draft', label: 'Draft (new)', color: 'amber' },
   { value: 'approved', label: 'Approved', color: 'green' },
   { value: 'rejected', label: 'Rejected', color: 'red' },
+  { value: 'draft', label: 'Not completed', color: 'gray' }, // donation started, payment never submitted
 ];
+// Automatic reminders for unfinished donations, counted from when the donor started (30 min, 3 days, 7 days)
+export const DONATION_REMINDER_DELAYS = [30 * 60 * 1000, 3 * 24 * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000];
 
 export const PHOTO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 export const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];

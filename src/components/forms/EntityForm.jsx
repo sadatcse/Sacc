@@ -2,6 +2,7 @@
 import { cn } from '@/lib/utils';
 import { Input, Select, Textarea } from './FormField';
 import ListEditor from './ListEditor';
+import ImageField from './ImageField';
 
 // Read / write nested values with dotted names ("links.github")
 export const getPath = (obj, path) => path.split('.').reduce((o, key) => o?.[key], obj);
@@ -17,13 +18,14 @@ export function setPath(obj, path, value) {
  * Field: { name, label, type, options?, required?, placeholder?, help?, rows?, full? }
  * Types: text | email | password | url | number | date | textarea | select | checkbox | list (comma separated)
  *        | lines (array, one item per line) | rows (array of objects via ListEditor; pass `columns`, `addLabel`) | heading
+ *        | image (link or upload with preview; pass `folder`: news | about | executives | alumni | profiles | general)
  */
 export default function EntityForm({ fields, values, onChange, disabled }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {fields.map((field) => {
-        const { name, label, type = 'text', options = [], help, full, rows, columns, addLabel, ...rest } = field;
-        const wide = full || ['textarea', 'heading', 'lines', 'rows'].includes(type);
+        const { name, label, type = 'text', options = [], help, full, rows, columns, addLabel, folder, aspect, ...rest } = field;
+        const wide = full || ['textarea', 'heading', 'lines', 'rows', 'image'].includes(type);
         const raw = name ? getPath(values, name) : undefined;
         let control;
 
@@ -42,6 +44,8 @@ export default function EntityForm({ fields, values, onChange, disabled }) {
               {label}
             </label>
           );
+        } else if (type === 'image') {
+          control = <ImageField label={label} name={name} value={raw ?? ''} onChange={(v) => onChange(name, v)} folder={folder} aspect={aspect} required={rest.required} placeholder={rest.placeholder} disabled={disabled} />;
         } else if (type === 'select') {
           control = <Select label={label} name={name} value={raw ?? ''} onChange={(e) => onChange(name, e.target.value)} options={options} disabled={disabled} {...rest} />;
         } else if (type === 'rows') {

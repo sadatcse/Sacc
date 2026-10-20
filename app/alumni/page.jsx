@@ -5,8 +5,13 @@ import FeaturedAlumni from '@/components/alumni/FeaturedAlumni';
 import DarkPageHeader from '@/components/ui/DarkPageHeader';
 import { getApprovedAlumni, getFeaturedAlumni } from '@/server/services/alumni.service';
 import { getServerSession } from '@/lib/auth-guard';
+import { getPaymentMethods } from '@/server/services/settings.service';
+import { getDonationDraft } from '@/server/services/payment.service';
+import { methodsFor } from '@/config/payment-methods';
+import DonateButton from '@/components/payments/DonateButton';
 
 export const metadata = {
+  alternates: { canonical: '/alumni' },
   title: 'Alumni',
   description: 'Alumni directory — where former club members are now, with batch, role and social links. CSE graduates can apply to join the alumni network.',
 };
@@ -48,10 +53,13 @@ function HeaderActions({ session }) {
   return null;
 }
 
-export default async function Page() {
+// ?donate=<token> (link in a donation reminder email) reopens the Donate dialog at the payment step
+export default async function Page({ searchParams }) {
+  const { donate } = await searchParams;
   // Shared email / phone numbers are only sent to signed-in members
   const session = await getServerSession();
-  const [alumni, featured] = await Promise.all([getApprovedAlumni({ withContact: Boolean(session) }), getFeaturedAlumni(6)]);
+  const [alumni, featured, payMethods] = await Promise.all([getApprovedAlumni({ withContact: Boolean(session) }), getFeaturedAlumni(6), getPaymentMethods()]);
+  const resume = donate ? await getDonationDraft(donate) : null;
   return (
     <div className="min-h-[70vh] bg-canvas text-body">
       <DarkPageHeader
@@ -62,6 +70,8 @@ export default async function Page() {
       >
         <div className="mt-6 flex flex-wrap gap-3">
           <HeaderActions session={session} />
+          {/* Anyone can donate; methods switched on for donations in Dashboard → Payment Methods */}
+          <DonateButton methods={methodsFor(payMethods, 'donation')} donor={session ? { name: session.name, email: session.email } : null} resume={resume} />
         </div>
       </DarkPageHeader>
 

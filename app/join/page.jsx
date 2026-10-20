@@ -5,6 +5,7 @@ import { methodsFor } from '@/config/payment-methods';
 import { siteConfig } from '@/config/site';
 
 export const metadata = {
+  alternates: { canonical: '/join' },
   title: 'Join the Club',
   description: `Apply for membership of the ${siteConfig.name}.`,
 };

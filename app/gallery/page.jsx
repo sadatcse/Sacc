@@ -3,6 +3,7 @@ import GalleryGrid from '@/components/gallery/GalleryGrid';
 import { getGalleryPhotos } from '@/server/services/gallery.service';
 
 export const metadata = {
+  alternates: { canonical: '/gallery' },
   title: 'Gallery',
   description: 'Moments from our events, workshops, competitions and celebrations.',
 };

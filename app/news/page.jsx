@@ -5,6 +5,7 @@ import { toCard, todayISO } from '@/lib/news-utils';
 import { newsCategories } from '@/data/news-categories';
 
 export const metadata = {
+  alternates: { canonical: '/news' },
   title: 'News & Events',
   description: 'Club news, articles, tutorials, research highlights and upcoming events.',
 };

@@ -4,6 +4,7 @@ import DarkPageHeader from '@/components/ui/DarkPageHeader';
 import { siteConfig } from '@/config/site';
 
 export const metadata = {
+  alternates: { canonical: '/certificates' },
   title: 'Verify a Certificate',
   description: `Check that a certificate was issued by the ${siteConfig.name} — executive committee, contest, seminar and workshop certificates.`,
 };

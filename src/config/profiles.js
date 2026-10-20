@@ -1,6 +1,6 @@
 // Profile fields per role — used by the API (src/server/services/user.service.js) to decide what
 // can be saved, and by the profile form (src/components/account/ProfileForm.jsx) to render inputs.
-// Types: text | longtext | url | number | list (comma separated) | lines (one per line) | boolean | shift
+// Types: text | longtext | url | image (photo: link or upload) | number | list (comma separated) | lines (one per line) | boolean | shift
 //        | experience / education (repeatable rows) | links (social links group) | heading (form section title only)
 export const ROLE_LABELS = {
   admin: 'Admin (Faculty)',
@@ -17,7 +17,7 @@ export const PROFILE_CONFIG = {
       { name: 'batch', label: 'Batch', type: 'text', placeholder: 'CSE 22' },
       { name: 'semester', label: 'Semester', type: 'text', placeholder: 'Spring 2026' },
       { name: 'section', label: 'Section', type: 'text', placeholder: 'A' },
-      { name: 'photo', label: 'Photo URL', type: 'url', placeholder: 'https://…' },
+      { name: 'photo', label: 'Photo', type: 'image', placeholder: 'https://… or upload' },
       { name: 'skills', label: 'Skills', type: 'list', placeholder: 'C++, React, Python' },
       { name: 'bio', label: 'About you', type: 'longtext' },
       { name: 'links', label: 'Links', type: 'links' },
@@ -30,7 +30,7 @@ export const PROFILE_CONFIG = {
       { name: 'department', label: 'Department', type: 'text' },
       { name: 'employeeId', label: 'Employee ID', type: 'text' },
       { name: 'office', label: 'Office / Room', type: 'text' },
-      { name: 'photo', label: 'Photo URL', type: 'url', placeholder: 'https://…' },
+      { name: 'photo', label: 'Photo', type: 'image', placeholder: 'https://… or upload' },
       { name: 'expertise', label: 'Areas of expertise', type: 'list', placeholder: 'Machine Learning, Networks' },
       { name: 'bio', label: 'Biography', type: 'longtext' },
       { name: 'links', label: 'Links', type: 'links' },
@@ -52,7 +52,7 @@ export const PROFILE_CONFIG = {
       { name: 'industry', label: 'Industry', type: 'text', placeholder: 'Software, Banking, Research…' },
       { name: 'location', label: 'City', type: 'text', placeholder: 'Dhaka' },
       { name: 'country', label: 'Country', type: 'text', placeholder: 'Bangladesh' },
-      { name: 'photo', label: 'Photo URL', type: 'url', placeholder: 'https://…' },
+      { name: 'photo', label: 'Photo', type: 'image', placeholder: 'https://… or upload' },
       { type: 'heading', label: 'Your story' },
       { name: 'bio', label: 'About you', type: 'longtext' },
       { name: 'quote', label: 'Message to current students', type: 'longtext' },
@@ -100,6 +100,7 @@ export function formField(name, f) {
     case 'lines': return { name, label: f.label, type: 'lines', placeholder: f.placeholder };
     case 'shift': return { name, label: f.label, type: 'select', options: SHIFT_SELECT };
     case 'boolean': return { name, label: f.label, type: 'checkbox', full: true };
+    case 'image': return { name, label: f.label, type: 'image', folder: 'profiles', placeholder: f.placeholder };
     case 'experience': return { name, label: f.label, type: 'rows', columns: EXPERIENCE_COLUMNS, addLabel: 'Add position' };
     case 'education': return { name, label: f.label, type: 'rows', columns: EDUCATION_COLUMNS, addLabel: 'Add degree' };
     default: return { name, label: f.label, type: f.type, placeholder: f.placeholder };

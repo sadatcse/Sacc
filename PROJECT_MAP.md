@@ -7,7 +7,8 @@ University of South Asia Computer Club site. Next.js 16 (App Router, Turbopack) 
 - Route files stay thin: `app/**/page.jsx` renders a view from `src/views/` (dashboard/login) or composes `src/components/ui/*` (public pages)
 - **Light / dark mode everywhere:** never use fixed greys (`bg-white`, `text-gray-700`, `bg-neutral-900`…). Use the theme tokens from [tailwind.config.js](tailwind.config.js): `bg-canvas` (page), `bg-canvas-2`, `bg-surface` (cards), `bg-surface-2`, `text-ink` (headings), `text-ink-2`, `text-body`, `text-muted`, `text-subtle`, `text-faint`, `border-line/10` (hairlines; `bg-line/5` tints). Values live in [src/styles/globals.css](src/styles/globals.css) (`:root` = light, `.dark` = dark). Accent text: `text-orange-600 dark:text-orange-400`. Keep `text-white` only on brand gradients / photos.
 - **Responsive:** phones (< md) get stacked cards instead of tables (`DataTable`), bottom-sheet dialogs (`Modal`), a full-screen menu (`Navbar`); wide screens widen containers (`2xl:max-w-screen-2xl`) and scale type up from 1920px
-- `npm run dev` · `npm run build` · `npm run lint` · `npm run seed` (demo accounts + starter content, safe to re-run; `-- --force` overwrites) · `npm run create-admin -- <email> <password> [name]`
+- **Hosting:** cPanel (Setup Node.js App / Passenger, startup file `server.cjs`) — step-by-step in [DEPLOY_CPANEL.md](DEPLOY_CPANEL.md)
+- `npm run dev` · `npm run build` (= [scripts/build.js](scripts/build.js): `next build`, on old Linux / glibc < 2.29 automatically `--webpack` + WebAssembly sharp) · `npm run build:webpack` · `npm run lint` · `npm run pack:cpanel` (upload package) · `npm start` (= `node server.cjs`; refuses to start without a build) · `npm run build:low-memory` · `npm run seed` (demo accounts + starter content, safe to re-run; `-- --force` overwrites) · `npm run create-admin -- <email> <password> [name]`
 - **Roles:** `admin` = teachers/faculty (dashboard, AdminProfile) · `student` (StudentProfile) · `alumni` (AlumniProfile, listed in the directory once approved)
 - **Backend layers:** `app/api/**/route.js` (thin) → `src/server/controllers/` (HTTP) → `src/server/services/` (DB logic + input cleaning) → `src/models/` (Mongoose). Public pages call services directly.
 
@@ -21,6 +22,8 @@ University of South Asia Computer Club site. Next.js 16 (App Router, Turbopack) 
 | Change brand colours / light & dark palettes | `primary` scale + tokens in [tailwind.config.js](tailwind.config.js); token values per theme in [src/styles/globals.css](src/styles/globals.css) |
 | Theme switch (light / dark / system) | [src/components/layout/ThemeToggle.jsx](src/components/layout/ThemeToggle.jsx) + no-flash script in [app/layout.jsx](app/layout.jsx) |
 | Site timezone, club registration on/off | Dashboard → **Settings** (`/dashboard/settings`); timezone helpers in [src/lib/timezone.js](src/lib/timezone.js) |
+| Photo fields (link **or** upload) | `type: 'image'` in any `EntityForm` field list (`folder`: news / about / executives / alumni / profiles / general) → [src/components/forms/ImageField.jsx](src/components/forms/ImageField.jsx) (preview, paste link, upload button, drag & drop, browser-side shrink; `uploadImage(file, folder)` helper) → `POST /api/uploads` → [src/server/services/upload.service.js](src/server/services/upload.service.js) (WebP, saved in `UPLOAD_DIR`) → served by [app/uploads/[...path]/route.js](app/uploads/[...path]/route.js). Server cleaner type `image` (site path or http(s) link) in [src/server/validate.js](src/server/validate.js) |
+| SEO (titles, canonical URLs, link previews, structured data, robots.txt, sitemap) | Site-wide metadata in [app/layout.jsx](app/layout.jsx); preview image [app/opengraph-image.jsx](app/opengraph-image.jsx) (+ `twitter-image.jsx`); helpers + Organization schema in [src/lib/seo.js](src/lib/seo.js), `<JsonLd>` in [src/components/seo/JsonLd.jsx](src/components/seo/JsonLd.jsx) (home: Organization + WebSite, news: NewsArticle / Event, executives: Person); [app/robots.js](app/robots.js); [app/sitemap.js](app/sitemap.js); Search Console codes `GOOGLE_SITE_VERIFICATION` / `BING_SITE_VERIFICATION` |
 | Change the logo or favicon | `public/logo.png` (+ copies `app/icon.png`, `app/apple-icon.png`), `app/favicon.ico`; component [src/components/layout/Logo.jsx](src/components/layout/Logo.jsx) |
 | Edit home page text, numbers, photos | [src/data/home.js](src/data/home.js) (static parts). **Upcoming/Recent Events, Activities & Achievements, Workshops & Seminars** and the committee come from MongoDB — manage them in Dashboard → News & Events / Executives |
 | Edit Terms / Privacy / Cookie / Refund text | [src/data/legal.js](src/data/legal.js) (rendered by `LegalPage`) |
@@ -37,6 +40,7 @@ University of South Asia Computer Club site. Next.js 16 (App Router, Turbopack) 
 | Club members list (batch / gender filters, privacy rule) | Dashboard → **Membership → Club Members** tab (`?tab=members`) and Account → **Club Members** (approved student members) via [src/server/services/members.service.js](src/server/services/members.service.js) — male members never receive female members' phone / email / Facebook |
 | Contact email, phones, address, map, social links, CSE department link | Dashboard → **Settings → Contact details** (`Setting` key `contact`, read with `getContactInfo()`; defaults from [src/config/site.js](src/config/site.js)). Used by /contact, the home page, the footer (via `app/layout.jsx` → `AppShell`), legal pages (`{{email}}` / `{{address}}` placeholders in `src/data/legal.js`) and email footers. Also toggles the committee contacts (top N student executives from Dashboard → Executives, `getClubContacts`) |
 | Payment methods (bKash / Nagad / Rocket / Upay / cash / cheque / bank: on-off, account details, which purpose — joining fee, renewal, donation) | Dashboard → **Payment Methods** (`/dashboard/payment-methods`) → `Setting` key `payments`; kinds, payer fields and helpers (`methodsFor`, `methodLabel`, `missingTransferFields`) in [src/config/payment-methods.js](src/config/payment-methods.js); used by `JoinForm`, `PaymentsPanel`, `PaymentsManager` (+ `usePaymentMethods` hook, `PayTo` component) |
+| Unfinished donations + reminder emails | "Continue to payment" in the Donate dialog saves a `draft` donation (Dashboard → Payments, status **Not completed**); if it's never paid the donor is emailed 30 min, 3 days and 7 days later (`DONATION_REMINDER_DELAYS` in [src/config/membership.js](src/config/membership.js), `sendDonationReminders` in [src/server/services/payment.service.js](src/server/services/payment.service.js), template `sendDonationReminder` in mail.service, on/off in Settings → Email). The link `/alumni?donate=<token>` reopens the payment step. Runs every 5 min from [instrumentation.js](instrumentation.js) → [src/server/jobs.js](src/server/jobs.js); on serverless hosts call `GET /api/cron/donation-reminders` with `Authorization: Bearer $CRON_SECRET` |
 | Payments received (joining fees, renewals, alumni donations), renewal fee | Dashboard → **Payments** (`/dashboard/payments`); renewal fee per year in Membership → Registration settings (`renewFee`); logic in [src/server/services/payment.service.js](src/server/services/payment.service.js); members renew / alumni donate at Account → **Payments** |
 | Membership period (join date, expiry, 1-year term, renew 1–3 years) | `joinedAt` / `expiresAt` on `MembershipApplication`, set on approval, extended by verified renewals; helpers in [src/lib/membership.js](src/lib/membership.js); admins edit the dates in the application dialog |
 | Login math captcha | [src/lib/captcha.js](src/lib/captcha.js) (signed one-time token) → `GET /api/auth/captcha`, checked by `signIn` |
@@ -65,12 +69,19 @@ University of South Asia Computer Club site. Next.js 16 (App Router, Turbopack) 
 
 | File | Purpose |
 | --- | --- |
-| `next.config.mjs` | Security headers; pins `turbopack.root` (project is nested inside another Next app's folder) |
+| `next.config.mjs` | Security headers; pins `turbopack.root` (project is nested inside another Next app's folder); images from any https host (pasted photo links) |
+| `server.cjs` | cPanel / Passenger startup file (custom Next.js server on `PORT`); refuses to start without a complete build or with a build from another Next.js version (`.next/NEXT_VERSION`, written by `scripts/build.js`) — prints what to do. `next`, `react`, `react-dom` are pinned to exact versions in `package.json` so every server installs the same ones |
+| `DEPLOY_CPANEL.md` | How to deploy, update, back up uploads, cron for reminders, SEO checklist |
+| `scripts/build.js` | `npm run build`: Turbopack normally; webpack + `--disable-wasm-trap-handler` + low resources (`NEXT_LOW_RESOURCES=1` → 1 worker, webpack memory optimizations in `next.config.mjs`) + `@img/sharp-wasm32` if sharp can't load, on old servers (glibc < 2.29: CentOS / CloudLinux 7–8); writes `.image-unoptimized` (→ `images.unoptimized`) when sharp can't load at all |
+| `scripts/pack-cpanel.js` | `npm run pack:cpanel` → `deploy/usacc-cpanel.tar.gz` (source without node_modules / .next / .env / uploads); `-- --with-build` → `usacc-cpanel-built.tar.gz` incl. `.next` (build on Linux) |
+| `.github/workflows/cpanel-package.yml` | GitHub Actions "cPanel package" (manual): builds on Linux with the given site URL → artifact `usacc-cpanel-built` for servers too small to build |
+| `uploads/` | Uploaded images (git-ignored; set `UPLOAD_DIR` to keep them outside the app folder on cPanel) |
 | `proxy.js` | CORS for `/api/*`; `/dashboard/*` admins only (others → `/account`), `/account/*` and `/alumni/<slug>` need a session (→ `/login?from=`); signed-in users skip `/login` & `/register` (→ `from` if safe, else their home) |
 | `jsconfig.json` | `@/*` alias |
 | `tailwind.config.js` / `postcss.config.js` | Tailwind setup; scans `app/` and `src/` |
 | `eslint.config.mjs` | ESLint (next config) |
-| `.env.example` | `NEXT_PUBLIC_SITE_URL`, `MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `SMTP_*`, `CONTACT_NOTIFICATION_EMAIL`, `ALLOW_REGISTRATION`, `SEED_*` (demo accounts) |
+| `.env.example` | `NEXT_PUBLIC_SITE_URL`, `MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `SMTP_*`, `CONTACT_NOTIFICATION_EMAIL`, `ALLOW_REGISTRATION`, `SEED_*` (demo accounts), `CRON_SECRET`, `UPLOAD_DIR`, `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION` (optional) |
+| `instrumentation.js` | Runs once at server start (Node.js runtime) → `startJobs()` in `src/server/jobs.js` (donation reminders every 5 min) |
 | `scripts/create-admin.js` | Creates/promotes/resets an admin (faculty) user |
 | `scripts/seed.js` | `npm run seed`: 3 demo accounts (admin/student/alumni, from `SEED_*`) + test logins with full profiles (`test.student@usacc.edu.bd` / `TestStudent@123` — male member, `test.female@usacc.edu.bd` / `TestFemale@123` — female member, `test.alumni@usacc.edu.bd` / `TestAlumni@123`) + 20 SAMPLE approved club members (`src/data/seed/members.js`) + news, executives, alumni from `src/data/seed/` |
 | `public/logo.png` | Club logo (270×251), served at `/logo.png`; used by `Logo` and the Open Graph image |
@@ -90,8 +101,10 @@ University of South Asia Computer Club site. Next.js 16 (App Router, Turbopack) 
 | `app/layout.jsx` | Root layout: metadata, theme no-flash script, reads the `site` setting (timezone) per request (`dynamic = 'force-dynamic'`), wraps everything in `AppShell` |
 | `app/loading.jsx` | Global loading UI |
 | `app/not-found.jsx` | 404 page |
-| `app/robots.js` | robots.txt |
-| `app/sitemap.js` | sitemap.xml (nav pages + every published news post from MongoDB) |
+| `app/robots.js` | robots.txt (private areas, `/api/`, members-only alumni profiles, single certificates and donation links blocked; gallery images + `/uploads/` allowed) |
+| `app/sitemap.js` | sitemap.xml (nav pages, /certificates, every published news post with its cover image, every executive profile) |
+| `app/opengraph-image.jsx` · `app/twitter-image.jsx` | 1200×630 link-preview image (logo, club name, slogan) for pages without their own photo |
+| `app/uploads/[...path]/route.js` | Serves uploaded images from `UPLOAD_DIR` (immutable cache, images only, no path tricks) |
 | `app/error.jsx` | Error page (e.g. database unreachable) |
 | `app/favicon.ico`, `app/icon.png`, `app/apple-icon.png` | Browser-tab / bookmark / iOS icons (Next serves these automatically) |
 
@@ -101,11 +114,11 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 | Route | File |
 | --- | --- |
 | `/` | `app/page.jsx`: dark designed home page (sections in `src/components/home/`, content in `src/data/home.js`, committee from DB) |
-| `/about` | `app/about/page.jsx`: About page — mission/vision cards, "How it all started" (inauguration 9 March 2024, photo in `public/about/`), count-up numbers, alternating "Our Journey" timeline, join CTA (content from `Setting` `about`) |
+| `/about` | `app/about/page.jsx`: About page — mission/vision cards, "How it all started" (inauguration 9 March 2024, photo in `public/about/`), count-up numbers, alternating "Our Journey" timeline (an entry with a link — site path or https — is a clickable card), join CTA (content from `Setting` `about`) |
 | `/join` | `app/join/page.jsx`: club membership application via `JoinForm` (open/closed banner, fee + payment number with copy, photo upload, soft skills; no university email) → saved as **draft** |
 | `/executives` (`?year=2025`) | `app/executives/page.jsx`: year tabs, Faculty Advisors + Student Executives cards (defaults to newest year) |
 | `/executives/[slug]` (`?year=` sets breadcrumb) | `app/executives/[slug]/page.jsx`: profile, all positions held across years, stats; unknown slug → 404 |
-| `/alumni` | `app/alumni/page.jsx`: Alumni Directory (search, filters, sort) via `AlumniDirectory`; header button by visitor (signed out: **Apply for Alumni Membership** → `/register?type=alumni`; alumni: update profile; admin: manage) + "Join the alumni network" section (3 steps) for signed-out visitors; each card opens the profile and shows social links (everyone) + shared email / phone / WhatsApp (signed-in visitors only — contact is not even sent to signed-out browsers) |
+| `/alumni` | `app/alumni/page.jsx`: Alumni Directory (search, filters, sort) via `AlumniDirectory`; header button by visitor (signed out: **Apply for Alumni Membership** → `/register?type=alumni`; alumni: update profile; admin: manage) + **Donate** button for every visitor (`DonateButton`: details + amount → payment method from Payment Methods → pending donation in Dashboard → Payments) + "Join the alumni network" section (3 steps) for signed-out visitors; each card opens the profile and shows social links (everyone) + shared email / phone / WhatsApp (signed-in visitors only — contact is not even sent to signed-out browsers) |
 | `/alumni/[slug]` | `app/alumni/[slug]/page.jsx`: alumni profile — header (job, batch, shift, class of, location, mentor badge, links, email if shown), About, Message to students, Experience timeline, Education, Achievements, Quick facts, Skills, mentoring CTA, More alumni; approved entries only (student ID never shown); **members only** — signed-out visitors go to `/login?from=…` and return here after signing in / signing up |
 | `/news` | `app/news/page.jsx`: dark News & Events list (featured post, category chips, type filter, search, load more) via `NewsDirectory`; `?category=<key>` preselects a category |
 | `/news/[slug]` | `app/news/[slug]/page.jsx`: `ArticleView` (blog layout) or `EventView` (details sidebar, guests, seats) by post `type`, plus related posts; unknown slug → 404 |
@@ -122,7 +135,7 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 | `/account` | `app/account/page.jsx` (layout `AccountShell`) | `ProfileForm` — own account + role profile |
 | `/account/security` | `app/account/security/page.jsx` | `PasswordForm` |
 | `/account/members` | `app/account/members/page.jsx` | `MembersDirectory` — approved club members (students who are approved members only) |
-| `/account/payments` | `app/account/payments/page.jsx` | `PaymentsPanel` — membership status (joined / valid until / expired), renew 1–3 years (students), donate (alumni), payment history |
+| `/account/payments` | `app/account/payments/page.jsx` | `PaymentsPanel` — tab **Payments** for students (membership status, renew 1–3 years, history) / **Donate** for alumni (donation form + history) |
 | `/account/certificates` | `app/account/certificates/page.jsx` | own executive committee certificates (View / Download PDF / verify page) — alumni only (students are redirected to `/account`) |
 | `/account/alumni` | `app/account/alumni/page.jsx` | redirects to `/account` (the student "Become Alumni" request was removed) |
 
@@ -141,7 +154,7 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 | `/dashboard/payment-methods` | `app/dashboard/payment-methods/page.jsx` | `PaymentMethodsManager.jsx` (add from presets, on/off switch, purposes per method, reorder, edit account details, live summary per purpose) |
 | `/dashboard/gallery` | `app/dashboard/gallery/page.jsx` | `GalleryManager.jsx` (upload with in-browser shrinking, Add from News picker, change picture, edit / pin / hide / delete, serial numbers + drag-and-drop **Arrange order**, import folder) |
 | `/dashboard/members` | `app/dashboard/members/page.jsx` | redirects to `/dashboard/membership?tab=members` |
-| `/dashboard/about` | `app/dashboard/about/page.jsx` | `AboutEditor.jsx` (text + numbers + timeline with `ListEditor`) |
+| `/dashboard/about` | `app/dashboard/about/page.jsx` | `AboutEditor.jsx` (text + numbers + timeline with `ListEditor`; timeline rows: year, title, description, link) |
 | `/dashboard/users` (`?status=pending`) | `app/dashboard/users/page.jsx` | `UsersManager.jsx` (roles, status, passwords; "waiting for approval" banner, sign-up details and one-click **Approve** → email) |
 | `/dashboard/login-history` | `app/dashboard/login-history/page.jsx` | `AuditLogs.jsx` → `LoginHistory` (every sign-in attempt, filters, `?search=`) |
 | `/dashboard/activity` | `app/dashboard/activity/page.jsx` | `AuditLogs.jsx` → `UserActivity` (every change by signed-in users, `?user=<id>`) |
@@ -176,9 +189,13 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 | `/api/event-certificates/[id]` · `/pdf/[code]` | PATCH, DELETE · GET | admin · public when the event allows (rate-limited) | Edit `{ name, institution, email, detail, type, revoked }` / delete · one event certificate PDF |
 | `/api/executives/[id]/alumni` | POST | admin | `{ graduationYear?, jobTitle?, company?, hideProfile? }` → creates / links the person's alumni entry (photo, links, latest position as badge; linked student login becomes alumni) |
 | `/api/gallery` · `/[id]` · `/[id]/image` · `/order` | GET (public; `?all=1` admin), POST (multipart) · PATCH, DELETE · PUT (multipart) · POST | public read / admin write | Gallery photos: upload one photo per request (≤10 MB, re-encoded), edit `{ caption, album, featured, hidden, serial }` (serial = move to that position, others renumbered), change picture · `{ ids }` → serial numbers 1…n in that order |
+| `/api/uploads` | POST | signed in (rate-limited 60/h) | multipart `{ file, folder? }` → `{ url, width, height, size }`; admins any folder, members only `profiles` |
 | `/api/gallery/image/[id]/[v]` | GET | public | Stored image bytes (WebP, cached forever — the version changes when the picture is replaced) |
 | `/api/gallery/news` · `/api/gallery/import-folder` | GET, POST · POST | admin | News images to pick / add `{ items: [{ postId, src }], album? }` (only images that belong to the post) · import new files from `public/gallery` |
 | `/api/payments` · `/[id]` | GET, POST · PATCH, DELETE | admin | All payments + stats (`?type`, `status`, `search`, `application`) / record a renewal or donation · `{ status, adminNote }` (verified renewal extends `expiresAt`; un-verify / delete takes it back) |
+| `/api/payments/donate/start` · `/api/payments/donate` | POST · POST | public (rate-limited per IP) | Donate dialog: step 1 `{ name, email, phone, batch?, amount, note?, token? }` → `draft` donation `{ token, reference }` · step 2 `{ ...same, token, method, paidFrom?, transactionId? }` → pending (linked to the account only when signed in) |
+| `/api/payments/[id]/remind` | POST | admin | Email the donor of an unfinished donation now |
+| `/api/cron/donation-reminders` | GET | `Authorization: Bearer $CRON_SECRET` | Sends the due donation reminders (for serverless hosts) |
 | `/api/payments/mine` | GET, POST | signed in | Own membership period + payments + how to pay · `{ type: renewal, years }` (approved students) or `{ type: donation, amount }` (alumni) → pending |
 | `/api/members` | GET | admin or approved student member | `{ members, batches, stats, viewer }`; female members' contact details removed for male viewers |
 | `/api/membership` | POST · GET | public (multipart, rate-limited 20/15 min per IP) · admin | Submit application (status `draft`; 403 when registration closed; 409 duplicate student ID) · list |
@@ -212,6 +229,7 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 - `FormField.jsx` — named exports `Input`, `Textarea`, `Select`
 - `EntityForm.jsx` — renders a form from a field list (dotted names like `links.github`; types incl. `lines` and `rows` → `ListEditor`); named `getPath`, `setPath`
 - `ListEditor.jsx` — add / reorder / remove rows of small records (About stats & timeline)
+- `ImageField.jsx` — photo field: link or upload (button / drag & drop), preview, remove; named `uploadImage(file, folder)`
 - `ContactForm.jsx` — public contact form → `POST /api/contact`
 
 ### `src/components/layout/`
@@ -257,6 +275,7 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 - `MembersDirectory.jsx` — client; stats, batch select, gender toggle, search, member cards (call / WhatsApp / email / Facebook, or "Contact details are private")
 
 ### `src/components/payments/`
+- `DonateButton.jsx` — client; Donate button + 2-step dialog (name, email, phone, batch, amount presets, message → saved as an unfinished donation → method, payer fields) → `POST /api/payments/donate`; thank-you screen with reference; `resume` (from `/alumni?donate=<token>`) opens the payment step; the browser remembers its unfinished donation (`localStorage`)
 - `PayTo.jsx` — client; "Pay with …" box for one method (account with copy button, account type / name, bank, amount, instructions); named `CopyText`, `KIND_ICONS`
 
 ### `src/components/gallery/`
@@ -304,7 +323,7 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 | `controllers/stats.controller.js` | `overview` (dashboard counts) |
 | `services/user.service.js` | Users + role profiles: `authenticate`, `createUser`, `updateUser`, `deleteUser`, `listUsers`, `getProfile`, `updateProfile`, `updateOwnAccount`, `changePassword`, `toPublicUser`, `activateUser` (pending → active; approves an alumni's directory entry with it); `listUsers` adds `signup` details to pending accounts |
 | `services/news.service.js` | `getPublishedPosts`, `getPostBySlug`, `getRelatedPosts`, `getHomeFeed` (cached per request: upcoming / recent events, workshops, achievement photos, category counts) (public); `listPosts`, `getPostById`, `createPost`, `updatePost`, `deletePost`, `countPosts` |
-| `services/executive.service.js` | `getYears`, `getLatestYear`, `getClubContacts(limit=2)` (top student executives of the newest committee incl. phone), `getCommittee(year)`, `getPerson(slug)`, `getPositionsFor(id)` (public); people & position CRUD |
+| `services/executive.service.js` | `getYears`, `getLatestYear`, `getClubContacts(limit=2)` (top student executives of the newest committee incl. phone), `getCommittee(year)`, `getPerson(slug)`, `getPositionsFor(id)`, `getSitemapPeople()` (public); people & position CRUD |
 | `services/settings.service.js` | `DEFAULTS` (`site`, `contact`, `about`, `membership`, `email`), `PRIVATE_KEYS`, `getContactInfo()`, `getSetting(key)` (stored value merged over defaults), `updateSetting(key, input)` |
 | `services/mail.service.js` | `getMailConfig`, `getMailSettingsForAdmin`, `sendMembershipReceived/Approved/Rejected/AdminNotice`, `sendContactAutoReply`, `sendContactAdminNotice`, `sendAccountReceived/Approved/AdminNotice`, `sendAlumniRequestDecision`, `sendTestEmail` (never throw; respect the notify toggles) |
 | `services/membership.service.js` | `submitApplication(formData)` (validation, image sniffing, duplicate check), `listApplications`, `reviewApplication`, `getPhoto`, `deleteApplication`, `countApplications` |
@@ -320,6 +339,9 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 | `controllers/certificate.controller.js` | `board`, `issue`, `update`, `remove`, `pdf`, `mine`, `signature`, `setSignature`, `removeSignature` |
 | `services/event-certificate.service.js` | Event certificates: `listEvents`, `getEventBoard`, `createEvent` / `updateEvent` / `deleteEvent`, `addRecipients`, `updateEventCertificate`, `deleteEventCertificate`, `renderEventPdf(code, session)`, `renderEventBundle(eventId, { type })`, `wordingFor`, `eventDateText`; **`verifyCertificate(code)`** — universal lookup for the verify page |
 | `controllers/event-certificate.controller.js` | `list`, `create`, `show`, `update`, `remove`, `addRecipients`, `bundle`, `updateCertificate`, `removeCertificate`, `pdf` |
+| `services/upload.service.js` | `UPLOAD_DIR`, `UPLOAD_FOLDERS` (max size per folder), `saveImage(form, { session })`, `readUpload(parts)` |
+| `controllers/upload.controller.js` | `upload` |
+| `jobs.js` | `startJobs()` — donation reminders every 5 min (started by `instrumentation.js`) |
 | `services/alumni.service.js` | `getApprovedAlumni` (directory shape), `getAlumniBySlug` (public profile, private fields stripped), `getRelatedAlumni`, `ensureAlumniSlug`; `listAlumni`, `createAlumni`, `updateAlumni`, `deleteAlumni`, `countAlumni` |
 
 ### `src/lib/` — shared utilities
@@ -339,6 +361,8 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 | `visitor.js` | `detectSource`, `getClientIp`, `resolveCountry` |
 | `api-client.js` | axios `api` (public) and `apiSecure` (with credentials), base `/api`; `apiError(err)` |
 | `redirect.js` | `safeRedirect(from, role, fallback)` (same-site paths only; /dashboard for admins), `isMembersOnlyPath(pathname)` |
+| `image-encode.js` | server-only `encodeImage(buffer, { maxEdge })` (sharp loaded lazily → WebP; without sharp keeps the original JPEG / PNG / WebP / GIF), `sniffImage(buffer)` — used by gallery + uploads |
+| `seo.js` | `SITE_URL`, `absoluteUrl(path)`, `describe(text, max)`, `organizationSchema(contact)` |
 | `utils.js` | `cn`, `escapeHtml`, `escapeRegex`, `formatDate` (site timezone), `formatCalendarDate`, `slugify` |
 | `timezone.js` | `DEFAULT_TIME_ZONE` (`Asia/Dhaka`), `setTimeZone` / `getTimeZone` (set by `app/layout.jsx` on the server and `AppShell` in the browser), `todayInTimeZone`, `isValidTimeZone`, `offsetLabel` |
 
@@ -358,7 +382,7 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 | `Post` | slug (unique), type `article\|event`, status `published\|draft`, category, title, excerpt, cover, date `YYYY-MM-DD`, author{name,role,verified}, tags[], featured, body[blocks], event{…}, createdBy |
 | `MembershipApplication` | firstName, lastName, personalEmail, phone, backupPhone, studentId, department, batch, shift, tshirtSize, bloodGroup, facebook, paymentMethod, paymentFrom, transactionId, amount, softSkills[], experience, gender `male\|female` (required on new applications; admins can set it), photo{data (select:false), contentType, size}, status `draft\|approved\|rejected`, user → User (the member's login), accountCreated, adminNote, reviewedBy, reviewedAt, joinedAt, expiresAt, ip |
 | `GalleryPhoto` | source `upload\|folder\|news`, src, image{data (select:false), contentType, size}, version, width, height, caption, album, post → Post, featured, serial (display order; pinned → serial → newest), hidden, deletedAt (folder photos), createdBy |
-| `Payment` | type `membership\|renewal\|donation`, status `pending\|verified\|rejected`, user, application, payer snapshot (name, email, phone, studentId, batch), amount, years, method, paidFrom, transactionId, note, adminNote, paidAt, periodStart/End, recordedBy, reviewedBy/At |
+| `Payment` | type `membership\|renewal\|donation`, status `draft\|pending\|verified\|rejected` (`draft` = unfinished donation: resumeToken (select:false), remindersSent, reminders [{at, auto, sent, error}]), user, application, payer snapshot (name, email, phone, studentId, batch), amount, years, method, paidFrom, transactionId, note, adminNote, paidAt, periodStart/End, recordedBy, reviewedBy/At |
 | `Setting` | key (unique: `site`, `contact`, `about`, `membership`, `payments`, `email`, `certificate`), value (Mixed), updatedBy |
 | `LoginLog` | user?, email, name, role, success, reason, ip, country, city, browser, os, device, userAgent, createdAt (TTL 180 days) |
 | `ActivityLog` | user, name, email, role, action, entity, entityId, summary, method, path, ip, country, browser, os, device, createdAt (TTL 180 days) |

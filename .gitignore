@@ -17,3 +17,12 @@ npm-debug.log*
 
 # vercel
 .vercel
+
+# uploaded images (Dashboard / profile photo uploads) — keep this folder on the server
+/uploads/
+
+# cPanel package (npm run pack:cpanel)
+/deploy/
+
+# written by scripts/build.js on servers without sharp
+/.image-unoptimized

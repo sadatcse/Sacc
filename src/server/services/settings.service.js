@@ -104,6 +104,7 @@ export const DEFAULTS = {
       accountReceived: true, // alumni / faculty sign-up: "your account is waiting for approval"
       accountApproved: true, // alumni / faculty: "your account is approved, you can sign in"
       accountAdmin: true, // admin inbox: new account waiting for approval
+      donationReminder: true, // donor: unfinished donation reminders (30 min, 3 days, 7 days)
     },
   },
 };
@@ -163,6 +164,15 @@ function url(value, label, { required = false } = {}) {
   }
   if (!HTTP_URL.test(v)) throw new HttpError(400, `${label} must be a full link starting with https://`);
   return v;
+}
+
+// Optional link on an About timeline entry (the whole card opens it): a page on this site (/news/…) or a full http(s) link
+function timelineLink(item) {
+  if (!item.link) return item;
+  if (!/^\/(?!\/)[^\s]*$/.test(item.link) && !HTTP_URL.test(item.link)) {
+    throw new HttpError(400, `"${item.title || item.year}": the link must start with / (a page on this site) or https://`);
+  }
+  return item;
 }
 
 const CLEANERS = {
@@ -238,7 +248,7 @@ const CLEANERS = {
     mission: str(input.mission, 1500),
     vision: str(input.vision, 1500),
     stats: rows(input.stats, 8, { value: 20, label: 60 }),
-    timeline: rows(input.timeline, 40, { year: 10, title: 120, text: 600 }),
+    timeline: rows(input.timeline, 40, { year: 10, title: 120, text: 600, link: 600 }).map(timelineLink),
   }),
   certificate: (input) => {
     const data = {

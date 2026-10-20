@@ -3,11 +3,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { cache } from 'react';
-import sharp from 'sharp';
 import connectDB from '@/lib/db';
 import GalleryPhoto from '@/models/GalleryPhoto';
 import Post from '@/models/Post';
 import { DEFAULT_ALBUM, imageSize, scanGalleryFolder } from '@/lib/gallery';
+import { encodeImage } from '@/lib/image-encode';
 import { HttpError } from '@/server/http';
 import { assertId, notFound, str, toPlain } from '@/server/validate';
 
@@ -141,17 +141,10 @@ export async function albumNames() {
 async function encode(file) {
   if (!file || typeof file === 'string' || !file.size) throw new HttpError(400, 'Choose a photo to upload.');
   if (file.size > MAX_UPLOAD_BYTES) throw new HttpError(400, 'The photo must be 10 MB or smaller.');
-  const input = Buffer.from(await file.arrayBuffer());
-  try {
-    const { data, info } = await sharp(input, { failOn: 'error' })
-      .rotate() // apply EXIF orientation
-      .resize({ width: MAX_EDGE, height: MAX_EDGE, fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 82 })
-      .toBuffer({ resolveWithObject: true });
-    return { image: { data, contentType: 'image/webp', size: data.length }, width: info.width, height: info.height };
-  } catch {
-    throw new HttpError(400, 'That file is not an image we can read. Use JPG, PNG or WebP.');
-  }
+  const encoded = await encodeImage(Buffer.from(await file.arrayBuffer()), { maxEdge: MAX_EDGE });
+  if (!encoded) throw new HttpError(400, 'That file is not an image we can read. Use JPG, PNG or WebP.');
+  const { data, contentType, width, height } = encoded;
+  return { image: { data, contentType, size: data.length }, width, height };
 }
 
 const cleanMeta = (input = {}) => ({

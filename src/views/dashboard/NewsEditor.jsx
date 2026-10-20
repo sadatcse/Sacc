@@ -1,13 +1,14 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FaArrowLeft, FaExternalLinkAlt } from 'react-icons/fa';
+import { FaArrowLeft, FaExternalLinkAlt, FaImage } from 'react-icons/fa';
 import { apiSecure, apiError } from '@/lib/api-client';
 import { blocksToText, guestsToText } from '@/lib/news-format';
 import { newsCategories, UPCOMING } from '@/data/news-categories';
 import { slugify } from '@/lib/utils';
 import EntityForm, { setPath } from '@/components/forms/EntityForm';
+import { uploadImage } from '@/components/forms/ImageField';
 import PageTitle from '@/components/dashboard/PageTitle';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -48,7 +49,7 @@ const SIDE_FIELDS = [
   { name: 'category', label: 'Category', type: 'select', options: CATEGORY_OPTIONS, full: true },
   { name: 'date', label: 'Publish date', type: 'date', required: true },
   { name: 'slug', label: 'URL slug', placeholder: 'auto from title' },
-  { name: 'cover', label: 'Cover image URL', required: true, full: true, placeholder: '/news/photo.jpg or https://…', help: 'Put photos in public/news/ and use /news/<file>.jpg' },
+  { name: 'cover', label: 'Cover image', type: 'image', folder: 'news', aspect: 'wide', required: true, placeholder: '/news/photo.jpg or https://…', help: 'Upload a photo or paste a link. Wide photos (16:9) look best.' },
   { name: 'tags', label: 'Tags', type: 'list', full: true, placeholder: 'CSE, Seminar' },
   { name: 'featured', label: 'Featured at the top of /news', type: 'checkbox', full: true },
   { type: 'heading', label: 'Author' },
@@ -76,7 +77,38 @@ const EVENT_FIELDS = [
   },
 ];
 
-const BODY_HELP = '## Heading · ### Sub-heading · - bullet · 1. numbered · > quote · **bold** · *italic* · [link](https://…) · ![alt](/news/photo.jpg "Caption") · tables: | A | B | rows. Blank line = new paragraph.';
+// Uploads a picture and adds it to the body as ![caption](/uploads/…) — the article shows it full width
+function InsertImage({ onInsert, disabled }) {
+  const input = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const pick = async (file) => {
+    if (!file) return;
+    setBusy(true);
+    setError('');
+    try {
+      const url = await uploadImage(file, 'news');
+      const caption = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+      onInsert(`![${caption}](${url})`);
+    } catch (err) {
+      setError(apiError(err, 'Upload failed.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <Button type="button" size="sm" variant="secondary" onClick={() => input.current?.click()} disabled={disabled || busy}>
+        <FaImage /> {busy ? 'Uploading…' : 'Insert image'}
+      </Button>
+      <input ref={input} type="file" accept="image/*,.heic,.heif" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; pick(f); }} />
+      {error && <span className="text-xs text-red-600 dark:text-red-400">{error}</span>}
+      {!error && <span className="text-xs text-subtle">Adds the picture at the end of the text — move the line where you want it.</span>}
+    </>
+  );
+}
+
+const BODY_HELP = '## Heading · ### Sub-heading · - bullet · 1. numbered · > quote · **bold** · *italic* · [link](https://…) · ![alt](/news/photo.jpg "Caption") (or use “Insert image”) · tables: | A | B | rows. Blank line = new paragraph.';
 
 export default function NewsEditor({ id }) {
   const router = useRouter();
@@ -168,6 +200,9 @@ export default function NewsEditor({ id }) {
                 onChange={onChange}
                 disabled={saving}
               />
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <InsertImage disabled={saving} onInsert={(line) => onChange('bodyText', `${values.bodyText.replace(/\s*$/, '')}${values.bodyText.trim() ? '\n\n' : ''}${line}\n`)} />
+              </div>
               <p className="mt-2 text-xs leading-relaxed text-subtle">{BODY_HELP}</p>
             </div>
           </Card>

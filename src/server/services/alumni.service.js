@@ -9,7 +9,7 @@ import { escapeRegex } from '@/lib/utils';
 
 // Fields an admin may set (alumni edit their own via src/config/profiles.js)
 const FIELDS = {
-  name: 'text', photo: 'url', studentId: 'text', department: 'text', degree: 'text', batch: 'text', shift: 'shift',
+  name: 'text', photo: 'image', studentId: 'text', department: 'text', degree: 'text', batch: 'text', shift: 'shift',
   graduationYear: 'number', jobTitle: 'text', company: 'text', industry: 'text', location: 'text', country: 'text',
   bio: 'longtext', quote: 'longtext', skills: 'list', achievements: 'lines', experience: 'experience', education: 'education',
   links: 'links', openToMentor: 'boolean', showEmail: 'boolean', phone: 'text', showPhone: 'boolean', hideProfile: 'boolean', featured: 'text', approved: 'boolean', spotlight: 'boolean',

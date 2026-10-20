@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -11,8 +12,25 @@ const nextConfig = {
   turbopack: { root: projectRoot },
   outputFileTracingRoot: projectRoot,
   images: {
-    remotePatterns: [{ protocol: 'https', hostname: 'images.unsplash.com' }],
+    // Photo fields accept a pasted link from any site (Facebook, Google Drive, university site…) as well as uploads
+    // (/uploads/… on this server), so https images from any host can be shown and resized.
+    remotePatterns: [{ protocol: 'https', hostname: '**' }],
+    formats: ['image/avif', 'image/webp'],
+    // Servers where the image library (sharp) can't run: `npm run build` leaves this marker → photos served as uploaded
+    unoptimized: fs.existsSync(path.join(projectRoot, '.image-unoptimized')),
   },
+  // Low-memory builds (old cPanel servers, `npm run build:low-memory`): scripts/build.js sets NEXT_LOW_RESOURCES=1
+  ...(process.env.NEXT_LOW_RESOURCES === '1' && {
+    experimental: {
+      cpus: 1,
+      workerThreads: false,
+      webpackMemoryOptimizations: true,
+      webpackBuildWorker: false, // compile in the main process — one Node process at a time counts against the account limit
+      parallelServerCompiles: false,
+      parallelServerBuildTraces: false,
+      staticGenerationMaxConcurrency: 2,
+    },
+  }),
   async headers() {
     return [
       {
