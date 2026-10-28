@@ -1,4 +1,6 @@
+import { Suspense } from 'react';
 import Hero from '@/components/home/Hero';
+import { HomeSectionSkeleton } from '@/components/loading/PageSkeletons';
 import { MotionRoot } from '@/components/home/motion';
 import {
   AboutSection, WhatWeDoSection, TechAndProjectsSection, EventsSection, AchievementsSection,
@@ -9,7 +11,9 @@ import { getContactInfo } from '@/server/services/settings.service';
 import { SITE_URL, organizationSchema } from '@/lib/seo';
 import { siteConfig } from '@/config/site';
 
-// Executives come from MongoDB; everything else lives in src/data/home.js
+// Events, news, committee and gallery come from MongoDB; everything else lives in src/data/home.js.
+// Each database section streams in behind its own placeholder, so the hero and the static sections show at once
+// even on a slow connection or a slow database.
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
@@ -27,12 +31,24 @@ export default async function HomePage() {
         <AboutSection />
         <WhatWeDoSection />
         <TechAndProjectsSection />
-        <EventsSection />
-        <AchievementsSection />
-        <WorkshopsSection />
-        <ExecutivesSection />
-        <CommunitySection />
-        <ConnectSection />
+        <Suspense fallback={<HomeSectionSkeleton className="bg-canvas-2" label="Loading events…" />}>
+          <EventsSection />
+        </Suspense>
+        <Suspense fallback={<HomeSectionSkeleton count={5} columns={5} label="Loading achievements…" />}>
+          <AchievementsSection />
+        </Suspense>
+        <Suspense fallback={<HomeSectionSkeleton className="bg-canvas-2" label="Loading workshops…" />}>
+          <WorkshopsSection />
+        </Suspense>
+        <Suspense fallback={<HomeSectionSkeleton count={5} columns={5} round label="Loading committee…" />}>
+          <ExecutivesSection />
+        </Suspense>
+        <Suspense fallback={<HomeSectionSkeleton className="bg-canvas-2" count={3} columns={3} label="Loading…" />}>
+          <CommunitySection />
+        </Suspense>
+        <Suspense fallback={<HomeSectionSkeleton count={3} columns={3} label="Loading contacts…" />}>
+          <ConnectSection />
+        </Suspense>
       </div>
     </MotionRoot>
   );

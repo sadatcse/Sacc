@@ -9,7 +9,8 @@ export default async function connectDB() {
 
   if (cached.conn) return cached.conn;
   if (!cached.promise) {
-    cached.promise = mongoose.connect(uri, { bufferCommands: false });
+    // Give up after 10 s (default 30 s) when the database can't be reached, instead of leaving the visitor waiting
+    cached.promise = mongoose.connect(uri, { bufferCommands: false, serverSelectionTimeoutMS: 10000 });
   }
   try {
     cached.conn = await cached.promise;

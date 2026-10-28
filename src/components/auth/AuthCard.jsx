@@ -11,7 +11,7 @@ export default function AuthCard({ title, subtitle, children, footer }) {
       <ThemeToggle className="absolute right-4 top-4" />
       <div className="relative w-full max-w-md">
         <Link href="/" className="mb-8 flex items-center justify-center gap-3">
-          <Image src="/logo.png" alt={`${siteConfig.name} logo`} width={52} height={48} className="h-12 w-auto" priority />
+          <Image src="/logo-sm.webp" alt={`${siteConfig.name} logo`} width={52} height={48} className="h-12 w-auto" priority />
           <span className="text-xl font-extrabold text-ink">{siteConfig.shortName}</span>
         </Link>
         <div className="rounded-2xl border border-line/10 bg-surface/80 p-7 shadow-2xl backdrop-blur md:p-8">

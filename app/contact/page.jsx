@@ -4,6 +4,7 @@ import { FaMapMarkerAlt, FaPhoneAlt, FaEnvelope, FaExternalLinkAlt, FaWhatsapp, 
 import { siteConfig } from '@/config/site';
 import { cn, formatPhone } from '@/lib/utils';
 import { getClubContacts } from '@/server/services/executive.service';
+import { thumb } from '@/lib/thumbs';
 import { getContactInfo } from '@/server/services/settings.service';
 import DarkPageHeader from '@/components/ui/DarkPageHeader';
 import ContactForm from '@/components/forms/ContactForm';
@@ -52,7 +53,7 @@ function PersonCard({ person }) {
     <li className="rounded-xl border border-line/10 bg-canvas/60 p-4">
       <div className="flex items-center gap-3">
         {person.photo ? (
-          <Image src={person.photo} alt="" width={48} height={48} className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-orange-500/40" />
+          <Image src={thumb(person.photo)} alt="" width={48} height={48} className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-orange-500/40" />
         ) : (
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-red-600 to-orange-500 text-sm font-bold text-white">{initials(person.name)}</span>
         )}
@@ -86,7 +87,7 @@ const FAQS = [
 
 export default async function Page() {
   const contact = await getContactInfo();
-  const { address, phones = [], email, mapUrl, mapEmbed, departmentUrl, departmentFacebook, social = {} } = contact;
+  const { address, phones = [], email, mapUrl, departmentUrl, departmentFacebook, social = {} } = contact;
   const people = contact.showExecutives ? await getClubContacts(contact.executiveCount || 2) : []; // President, Vice President, …
   const socials = Object.entries(SOCIAL).filter(([key]) => social[key]);
   const [hotline, ...otherPhones] = phones;
@@ -192,16 +193,17 @@ export default async function Page() {
           </div>
         </section>
 
-        {/* Map */}
-        {mapEmbed && (
+        {/* Map: a still picture of the campus area (public/contact/campus-map.webp) */}
+        {address && (
           <section id="map" className="relative mt-12 overflow-hidden rounded-2xl border border-line/10 bg-surface shadow-sm" aria-label="Map">
-            <iframe
-              title="University of South Asia on Google Maps"
-              src={mapEmbed}
-              className="h-[360px] w-full md:h-[460px]"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              allowFullScreen
+            <Image
+              unoptimized
+              src="/contact/campus-map.webp"
+              alt="Map of the area around the University of South Asia, Amin Bazar"
+              width={1592}
+              height={749}
+              className="h-[360px] w-full object-cover md:h-[460px]"
+              style={{ objectPosition: '47% 33%' }} // keeps the campus in view on narrow screens
             />
             <div className="pointer-events-none absolute inset-x-3 bottom-3 sm:inset-x-auto sm:left-4 sm:max-w-sm">
               <div className="pointer-events-auto rounded-xl border border-line/10 bg-surface/95 p-4 shadow-xl backdrop-blur">

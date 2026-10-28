@@ -6,11 +6,17 @@ import { requireAdmin, unauthorizedResponse } from '@/lib/auth-guard';
 import { after } from 'next/server';
 import { sendContactAdminNotice, sendContactAutoReply } from '@/server/services/mail.service';
 import { escapeRegex } from '@/lib/utils';
+import { isRateLimited } from '@/lib/rate-limit';
+import { getClientIp } from '@/lib/visitor';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Public: submit the contact form
 export async function POST(req) {
+  // Each message sends two emails — stop scripts from flooding the inbox
+  if (isRateLimited(`contact:${getClientIp(req)}`, { limit: 5, windowMs: 15 * 60 * 1000 })) {
+    return NextResponse.json({ success: false, message: 'Too many messages. Please try again in a few minutes.' }, { status: 429 });
+  }
   try {
     const body = await req.json();
     const data = {

@@ -4,6 +4,7 @@ import { getCommittee, getYears } from '@/server/services/executive.service';
 import DarkPageHeader from '@/components/ui/DarkPageHeader';
 import YearTabs from '@/components/executives/YearTabs';
 import ExecutiveCard from '@/components/executives/ExecutiveCard';
+import { thumb } from '@/lib/thumbs';
 import { MotionRoot, Stagger, StaggerItem } from '@/components/home/motion';
 
 // Requested year if a committee exists for it, otherwise the newest one
@@ -36,7 +37,7 @@ function Group({ icon: Icon, title, members }) {
       <Stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" gap={0.05}>
         {members.map((member) => (
           <StaggerItem key={`${member.slug}-${member.role}`}>
-            <ExecutiveCard member={member} />
+            <ExecutiveCard member={{ ...member, photo: thumb(member.photo) }} />
           </StaggerItem>
         ))}
       </Stagger>

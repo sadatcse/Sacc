@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { cache } from 'react';
+import { cachedPublic } from '@/lib/public-cache';
 import connectDB from '@/lib/db';
 import GalleryPhoto from '@/models/GalleryPhoto';
 import Post from '@/models/Post';
@@ -81,13 +82,15 @@ async function ensureImported() {
 
 // ---------- public ----------
 
-// Visible photos in display order (pinned, serial, newest). Cached per request.
-export const getGalleryPhotos = cache(async () => {
-  await connectDB();
-  await ensureImported();
-  const rows = await GalleryPhoto.find({ ...NOT_DELETED, hidden: { $ne: true } }).lean();
-  return ordered(rows).map(toPublic);
-});
+// Visible photos in display order (pinned, serial, newest). Cached per request and briefly between requests.
+export const getGalleryPhotos = cache(() =>
+  cachedPublic('gallery', async () => {
+    await connectDB();
+    await ensureImported();
+    const rows = await GalleryPhoto.find({ ...NOT_DELETED, hidden: { $ne: true } }).lean();
+    return ordered(rows).map(toPublic);
+  })
+);
 
 export async function getImage(id) {
   assertId(id, 'photo');

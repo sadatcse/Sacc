@@ -37,7 +37,7 @@ function Orbit() {
         animate={{ scale: [1, 1.05, 1] }}
         transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
       >
-        <Image src="/logo.png" alt="Club logo" width={270} height={251} className="h-auto w-full drop-shadow-[0_0_25px_rgba(239,68,68,0.6)]" priority />
+        <Image src="/logo.webp" alt="Club logo" width={270} height={251} className="h-auto w-full drop-shadow-[0_0_25px_rgba(239,68,68,0.6)]" priority />
       </motion.div>
 
       {/* Orbiting icons: the ring spins, each icon counter-spins to stay upright */}

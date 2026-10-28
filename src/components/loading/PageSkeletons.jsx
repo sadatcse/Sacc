@@ -246,6 +246,40 @@ export function HomeSkeleton() {
   );
 }
 
+// One home page section that reads MongoDB (app/page.jsx streams each in behind this placeholder).
+// `round` = circular photos (committee); `columns` = cards per row on large screens.
+export function HomeSectionSkeleton({ className = 'bg-canvas', count = 4, columns = 4, round = false, label = 'Loading…' }) {
+  const grid = { 3: 'lg:grid-cols-3', 4: 'lg:grid-cols-4', 5: 'lg:grid-cols-5' }[columns];
+  return (
+    <section className={cn('py-16 md:py-20', className)} aria-busy="true">
+      <LoadingLabel>{label}</LoadingLabel>
+      <div className="container max-w-7xl 2xl:max-w-screen-2xl">
+        <Skeleton className="mx-auto h-7 w-64 max-w-full" />
+        <span className="mx-auto mb-10 mt-3 block h-1 w-16 rounded-full bg-gradient-to-r from-red-600/50 to-orange-500/50" />
+        <div className={cn('grid gap-6 sm:grid-cols-2', grid)}>
+          {Array.from({ length: count }, (_, i) =>
+            round ? (
+              <div key={i} className="flex flex-col items-center gap-3">
+                <Skeleton className="h-28 w-28" rounded="rounded-full" />
+                <Skeleton className="h-3.5 w-24" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            ) : (
+              <div key={i} className={cardBox}>
+                <Skeleton className="aspect-[4/3] w-full" rounded="rounded-none" />
+                <div className="space-y-2.5 p-4">
+                  <Skeleton className="h-4 w-4/5" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              </div>
+            )
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // Dashboard page content (inside the dashboard shell)
 export function DashboardSkeleton() {
   return (

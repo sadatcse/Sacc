@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { FaCheckCircle, FaTimesCircle, FaFilePdf, FaSearch } from 'react-icons/fa';
 import { verifyCertificate } from '@/server/services/event-certificate.service';
 import DarkPageHeader from '@/components/ui/DarkPageHeader';
+import { thumb } from '@/lib/thumbs';
 import { initials } from '@/components/executives/ExecutiveCard';
 
 // Universal certificate verification (public) — the QR code on every certificate opens this page:
@@ -46,7 +47,7 @@ export default async function Page({ params }) {
           <div className="p-6">
             <div className="flex items-center gap-4">
               {cert.photo ? (
-                <Image unoptimized src={cert.photo} alt={cert.name} width={72} height={72} className="h-[72px] w-[72px] rounded-full object-cover object-top" />
+                <Image unoptimized src={thumb(cert.photo)} alt={cert.name} width={72} height={72} className="h-[72px] w-[72px] rounded-full object-cover object-top" />
               ) : (
                 <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-orange-500/10 text-xl font-bold text-orange-600 dark:text-orange-400">{initials(cert.name)}</span>
               )}

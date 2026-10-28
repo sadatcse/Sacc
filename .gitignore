@@ -26,3 +26,7 @@ npm-debug.log*
 
 # written by scripts/build.js on servers without sharp
 /.image-unoptimized
+
+# cPanel package (npm run build:cpanel-npm)
+/cpanel-npm-build
+/usacc-cpanel-npm.tar.gz

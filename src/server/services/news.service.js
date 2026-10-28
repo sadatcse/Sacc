@@ -8,6 +8,7 @@ import { assertId, list, makeSlug, notFound, str, toPlain } from '@/server/valid
 import { escapeRegex } from '@/lib/utils';
 import { todayISO } from '@/lib/news-utils';
 import { cache } from 'react';
+import { cachedPublic } from '@/lib/public-cache';
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const CATEGORY_KEYS = newsCategories.map((c) => c.key).filter((k) => k !== UPCOMING);
@@ -42,7 +43,9 @@ export async function getRelatedPosts(post, limit = 3) {
 // Home page sections (one query per request, shared by the three sections)
 const ACHIEVEMENT_CATEGORIES = ['activities-achievements', 'contests-hackathons', 'sports-games', 'projects-innovation'];
 
-export const getHomeFeed = cache(async () => {
+export const getHomeFeed = cache(() => cachedPublic('home-feed', loadHomeFeed));
+
+async function loadHomeFeed() {
   await connectDB();
   const posts = toPlain(await Post.find({ status: 'published' }).select(LIST_FIELDS).sort({ date: -1, createdAt: -1 }).lean());
   const today = todayISO();
@@ -56,7 +59,7 @@ export const getHomeFeed = cache(async () => {
     achievementPhotos: posts.filter((p) => ACHIEVEMENT_CATEGORIES.includes(p.category)).slice(0, 5),
     counts,
   };
-});
+}
 
 // ---------- admin ----------
 

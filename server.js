@@ -1,12 +1,19 @@
-// Startup file for cPanel → "Setup Node.js App" (Phusion Passenger). Set "Application startup file" to server.cjs.
+// Startup file for cPanel → "Setup Node.js App" (Phusion Passenger). Set "Application startup file" to server.js.
 // Passenger loads this file and routes the domain's traffic to the port it listens on. Run `npm run build` first.
 // Also works anywhere else: `npm start` (PORT defaults to 3000). See DEPLOY_CPANEL.md.
+// ES module (package.json "type": "module"), so `require` comes from createRequire — that keeps loading Next.js
+// after NODE_ENV is set below and lets a missing install be caught with a clear message.
+import fs from 'node:fs';
+import path from 'node:path';
+import { createServer } from 'node:http';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+
+const require = createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 // Always 'production' here (cPanel may set a non-standard value, which Next.js warns about)
 process.env.NODE_ENV = 'production';
-
-const fs = require('node:fs');
-const path = require('node:path');
-const { createServer } = require('node:http');
 
 const BUILD_HELP =
   '  cPanel → Setup Node.js App → your app → "Run JS script" → choose "build" (or in the Terminal: npm run build),\n' +
@@ -45,9 +52,24 @@ const handle = app.getRequestHandler();
 app
   .prepare()
   .then(() => {
-    createServer((req, res) => handle(req, res)).listen(port, () => {
-      console.log(`> USACC website ready on port ${port} (Next.js ${installed})`);
-    });
+    createServer(async (req, res) => {
+      try {
+        await handle(req, res);
+      } catch (error) {
+        // One bad request must not take the whole site down — log it and answer 500
+        console.error('Error handling', req.url, error);
+        if (!res.headersSent) res.statusCode = 500;
+        res.end('Internal server error');
+      }
+    })
+      .once('error', (error) => {
+        // e.g. port already in use — exit so Passenger / the process manager restarts the app
+        console.error('Server error:', error);
+        process.exit(1);
+      })
+      .listen(port, () => {
+        console.log(`> USACC website ready on port ${port} (Next.js ${installed})`);
+      });
   })
   .catch((error) => {
     // A file of the build is missing → almost always a build from another Next.js version or an unfinished build

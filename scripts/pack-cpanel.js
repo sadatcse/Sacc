@@ -25,7 +25,7 @@ if (withBuild && process.platform === 'win32') {
 
 const EXCLUDE = [
   './node_modules', withBuild ? './.next/cache' : './.next', './.git', './deploy', './uploads', './.env', './.env.local', './.env.*.local', './.vercel', './.claude',
-  './New folder*', '*.log', '.DS_Store',
+  '*.log', '.DS_Store',
 ];
 
 fs.mkdirSync(outDir, { recursive: true });

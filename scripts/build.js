@@ -1,16 +1,16 @@
 // npm run build — `next build` that also works on small / old cPanel (CloudLinux) servers.
 //
-// Next.js is pinned to 16.2.12 in package.json: its native compiler (@next/swc-linux-x64-gnu) needs only glibc 2.17,
-// so it runs on CloudLinux / CentOS 7–8 (16.3+ needs glibc 2.30 and falls back to a WebAssembly compiler that
-// reserves far more memory than shared hosting allows). This script:
+// Next.js 16.3+ needs glibc 2.30 for its native compiler; on older CloudLinux / CentOS servers it falls back to a
+// WebAssembly compiler that reserves far more memory than shared hosting allows. Prefer `npm run build:cpanel-npm`
+// (build on your computer, upload the result) — the server then never compiles. This script:
 //   1. checks that the native compiler loads; if not, builds with webpack + the WebAssembly compiler and
 //      --disable-wasm-trap-handler (WebAssembly otherwise reserves ~10 GB of address space),
 //   2. on servers with a per-process memory cap (CloudLinux "Max address space", e.g. 4 GB) or with --low-memory,
 //      builds gently: webpack, one process at a time, webpack memory optimizations, 1 GB heap
-//      (NEXT_LOW_RESOURCES=1, read by next.config.mjs),
+//      (NEXT_LOW_RESOURCES=1, read by next.config.js),
 //   3. makes sure the image library (sharp) runs — native, else its WebAssembly build; if the live site couldn't use
-//      it, image optimization is switched off (marker file .image-unoptimized, read by next.config.mjs),
-//   4. records the Next.js version in .next/NEXT_VERSION (server.cjs refuses builds from another version).
+//      it, image optimization is switched off (marker file .image-unoptimized, read by next.config.js),
+//   4. records the Next.js version in .next/NEXT_VERSION (server.js refuses builds from another version).
 // On a normal machine it is just `next build`.
 //
 // Options: --webpack (force webpack) · --low-memory (gentle build anywhere) · env NEXT_BUILD_WEBPACK=1
@@ -154,7 +154,7 @@ const env = {
 const nextBin = path.join(nextDir, 'dist', 'bin', 'next');
 const status = run(process.execPath, [nextBin, 'build', ...(useWebpack ? ['--webpack'] : [])], env);
 if (status === 0) {
-  // server.cjs only starts a build made by the Next.js version that is installed
+  // server.js only starts a build made by the Next.js version that is installed
   fs.writeFileSync(path.join(root, '.next', 'NEXT_VERSION'), nextVersion);
   console.log('\n✓ Build finished. On cPanel: click "Restart" in Setup Node.js App.');
 } else if (lowResources) {

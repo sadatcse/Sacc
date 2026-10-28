@@ -1,5 +1,6 @@
 // Committee members (Executive) and the roles they held per year (CommitteePosition).
 import { cache } from 'react';
+import { cachedPublic } from '@/lib/public-cache';
 import connectDB from '@/lib/db';
 import Executive, { PERSON_KINDS, SHIFTS } from '@/models/Executive';
 import CommitteePosition, { POSITION_TYPES } from '@/models/CommitteePosition';
@@ -42,10 +43,12 @@ function assertComplete(person) {
 // ---------- reads (public pages) ----------
 
 // Committee years, newest first
-export async function getYears() {
-  await connectDB();
-  const years = await CommitteePosition.distinct('year');
-  return years.sort((a, b) => b - a);
+export function getYears() {
+  return cachedPublic('committee-years', async () => {
+    await connectDB();
+    const years = await CommitteePosition.distinct('year');
+    return years.sort((a, b) => b - a);
+  });
 }
 
 export async function getLatestYear() {
@@ -53,7 +56,11 @@ export async function getLatestYear() {
 }
 
 // { advisors: [...], executives: [...] } for one year; each item = person + { role, year, type }
-export async function getCommittee(year) {
+export function getCommittee(year) {
+  return cachedPublic(`committee:${Number(year)}`, () => loadCommittee(year));
+}
+
+async function loadCommittee(year) {
   await connectDB();
   const rows = await CommitteePosition.find({ year: Number(year) }).sort({ order: 1, createdAt: 1 }).populate('executive').lean();
   const members = rows
@@ -67,7 +74,9 @@ export async function getCommittee(year) {
 
 // Public contact people for /contact and the home page: the newest committee's top student executives
 // (lowest order first — President, Vice President, …). Only these people's phone numbers are made public.
-export const getClubContacts = cache(async (limit = 2) => {
+export const getClubContacts = cache((limit = 2) => cachedPublic(`club-contacts:${limit}`, () => loadClubContacts(limit)));
+
+async function loadClubContacts(limit) {
   await connectDB();
   const year = await getLatestYear();
   const rows = await CommitteePosition.find({ year, type: 'executive' })
@@ -78,7 +87,7 @@ export const getClubContacts = cache(async (limit = 2) => {
   return rows
     .filter((p) => p.executive)
     .map(({ role, executive: e }) => ({ name: e.name, role, slug: e.slug, photo: e.photo || '', phone: e.phone || '', email: e.links?.email || '', year }));
-});
+}
 
 export async function getPerson(slug) {
   await connectDB();

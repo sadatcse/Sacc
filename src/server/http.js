@@ -8,6 +8,7 @@ import connectDB from '@/lib/db';
 import { getSession } from '@/lib/auth-guard';
 import User from '@/models/User';
 import { describeChange, recordActivity } from '@/server/services/audit.service';
+import { clearPublicCache } from '@/lib/public-cache';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 // Logged elsewhere (sign-in / register in auth.controller) or not user actions
@@ -76,6 +77,8 @@ export function route(handler, { roles, auth = Boolean(roles) } = {}) {
       const params = ctx?.params ? await ctx.params : {};
       const query = new URL(req.url).searchParams;
       const response = await handler({ req, params, query, session });
+      // An admin's change may affect what public pages show (sign-ins, forms and donations don't)
+      if (session?.role === 'admin' && MUTATING.has(req.method) && response.status < 400) clearPublicCache();
       await trackChange(req, session, response);
       return response;
     } catch (error) {

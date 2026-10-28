@@ -116,13 +116,26 @@ const NOTIFY_KEYS = Object.keys(DEFAULTS.email.notify);
 
 const KEYS = Object.keys(DEFAULTS);
 
-// Short in-memory cache for the site settings read by every page (app/layout.jsx)
+// In-memory cache for the site settings read by every page (app/layout.jsx). After CACHE_MS the old value is still
+// returned at once while a fresh copy loads in the background, so no visitor waits for MongoDB. Kept on globalThis
+// so pages and API routes (bundled separately) share it — saving a setting clears it for both.
 const CACHE_MS = 60 * 1000;
-const cache = new Map();
+const cache = (globalThis.__usaccSettingsCache ??= new Map());
 
 export async function getCachedSetting(key) {
   const hit = cache.get(key);
-  if (hit && hit.expires > Date.now()) return hit.value;
+  if (hit) {
+    if (hit.expires <= Date.now() && !hit.refreshing) {
+      hit.refreshing = true;
+      getSetting(key).then(
+        (value) => cache.set(key, { value, expires: Date.now() + CACHE_MS }),
+        () => {
+          hit.refreshing = false; // database unreachable — keep the last value, retry on a later visit
+        }
+      );
+    }
+    return hit.value;
+  }
   const value = await getSetting(key);
   cache.set(key, { value, expires: Date.now() + CACHE_MS });
   return value;

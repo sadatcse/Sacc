@@ -7,8 +7,8 @@ University of South Asia Computer Club site. Next.js 16 (App Router, Turbopack) 
 - Route files stay thin: `app/**/page.jsx` renders a view from `src/views/` (dashboard/login) or composes `src/components/ui/*` (public pages)
 - **Light / dark mode everywhere:** never use fixed greys (`bg-white`, `text-gray-700`, `bg-neutral-900`…). Use the theme tokens from [tailwind.config.js](tailwind.config.js): `bg-canvas` (page), `bg-canvas-2`, `bg-surface` (cards), `bg-surface-2`, `text-ink` (headings), `text-ink-2`, `text-body`, `text-muted`, `text-subtle`, `text-faint`, `border-line/10` (hairlines; `bg-line/5` tints). Values live in [src/styles/globals.css](src/styles/globals.css) (`:root` = light, `.dark` = dark). Accent text: `text-orange-600 dark:text-orange-400`. Keep `text-white` only on brand gradients / photos.
 - **Responsive:** phones (< md) get stacked cards instead of tables (`DataTable`), bottom-sheet dialogs (`Modal`), a full-screen menu (`Navbar`); wide screens widen containers (`2xl:max-w-screen-2xl`) and scale type up from 1920px
-- **Hosting:** cPanel (Setup Node.js App / Passenger, startup file `server.cjs`) — step-by-step in [DEPLOY_CPANEL.md](DEPLOY_CPANEL.md)
-- `npm run dev` · `npm run build` (= [scripts/build.js](scripts/build.js): `next build`; on servers with a memory cap (CloudLinux) a gentle webpack build, WebAssembly fallbacks only if native binaries can't load) · `npm run build:webpack` · `npm run lint` · `npm run pack:cpanel` (upload package) · `npm start` (= `node server.cjs`; refuses to start without a build) · `npm run build:low-memory` · `npm run seed` (demo accounts + starter content, safe to re-run; `-- --force` overwrites) · `npm run create-admin -- <email> <password> [name]`
+- **Hosting:** cPanel (Setup Node.js App / Passenger, startup file `server.js`) — step-by-step in [DEPLOY_CPANEL.md](DEPLOY_CPANEL.md)
+- `npm run dev` · `npm run build` (= [scripts/build.js](scripts/build.js): `next build`; on servers with a memory cap (CloudLinux) a gentle webpack build, WebAssembly fallbacks only if native binaries can't load) · `npm run build:webpack` · `npm run lint` · `npm run pack:cpanel` (upload package) · `npm start` (= `node server.js`; refuses to start without a build) · `npm run build:low-memory` · `npm run seed` (demo accounts + starter content, safe to re-run; `-- --force` overwrites) · `npm run create-admin -- <email> <password> [name]`
 - **Roles:** `admin` = teachers/faculty (dashboard, AdminProfile) · `student` (StudentProfile) · `alumni` (AlumniProfile, listed in the directory once approved)
 - **Backend layers:** `app/api/**/route.js` (thin) → `src/server/controllers/` (HTTP) → `src/server/services/` (DB logic + input cleaning) → `src/models/` (Mongoose). Public pages call services directly.
 
@@ -69,10 +69,10 @@ University of South Asia Computer Club site. Next.js 16 (App Router, Turbopack) 
 
 | File | Purpose |
 | --- | --- |
-| `next.config.mjs` | Security headers; pins `turbopack.root` (project is nested inside another Next app's folder); images from any https host (pasted photo links) |
-| `server.cjs` | cPanel / Passenger startup file (custom Next.js server on `PORT`); refuses to start without a complete build or with a build from another Next.js version (`.next/NEXT_VERSION`, written by `scripts/build.js`) — prints what to do. `next` (**16.2.12 — the last release whose native compiler runs on glibc 2.17; 16.3+ needs glibc 2.30, which CloudLinux 7/8 cPanel servers lack. Don't upgrade past 16.2.x while hosting there**), `react`, `react-dom` are pinned to exact versions in `package.json` so every server installs the same ones |
+| `next.config.js` | Security headers; pins `turbopack.root` (project is nested inside another Next app's folder); images from any https host (pasted photo links) |
+| `server.js` | cPanel / Passenger startup file (custom Next.js server on `PORT`); refuses to start without a complete build or with a build from another Next.js version (`.next/NEXT_VERSION`, written by `scripts/build.js`) — prints what to do. `next` (**16.2.12 — the last release whose native compiler runs on glibc 2.17; 16.3+ needs glibc 2.30, which CloudLinux 7/8 cPanel servers lack. Don't upgrade past 16.2.x while hosting there**), `react`, `react-dom` are pinned to exact versions in `package.json` so every server installs the same ones |
 | `DEPLOY_CPANEL.md` | How to deploy, update, back up uploads, cron for reminders, SEO checklist |
-| `scripts/build.js` | `npm run build`: Turbopack normally; on a per-process memory cap (CloudLinux) or `--low-memory`: webpack + low resources (`NEXT_LOW_RESOURCES=1` → one process, webpack memory optimizations in `next.config.mjs`, 1 GB heap); WebAssembly compiler + `--disable-wasm-trap-handler` only if the native SWC can't load; `@img/sharp-wasm32` if sharp can't load; writes `.next/NEXT_VERSION`; writes `.image-unoptimized` (→ `images.unoptimized`) when sharp can't load at all |
+| `scripts/build.js` | `npm run build`: Turbopack normally; on a per-process memory cap (CloudLinux) or `--low-memory`: webpack + low resources (`NEXT_LOW_RESOURCES=1` → one process, webpack memory optimizations in `next.config.js`, 1 GB heap); WebAssembly compiler + `--disable-wasm-trap-handler` only if the native SWC can't load; `@img/sharp-wasm32` if sharp can't load; writes `.next/NEXT_VERSION`; writes `.image-unoptimized` (→ `images.unoptimized`) when sharp can't load at all |
 | `scripts/pack-cpanel.js` | `npm run pack:cpanel` → `deploy/usacc-cpanel.tar.gz` (source without node_modules / .next / .env / uploads); `-- --with-build` → `usacc-cpanel-built.tar.gz` incl. `.next` (build on Linux) |
 | `.github/workflows/cpanel-package.yml` | GitHub Actions "cPanel package" (manual): builds on Linux with the given site URL → artifact `usacc-cpanel-built` for servers too small to build |
 | `uploads/` | Uploaded images (git-ignored; set `UPLOAD_DIR` to keep them outside the app folder on cPanel) |
@@ -223,7 +223,7 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 - `membership.js` — `TSHIRT_SIZES`, `BLOOD_GROUPS`, `GENDER_OPTIONS`, `SHIFT_OPTIONS`, `SOFT_SKILLS`, `APPLICATION_STATUSES`, photo limits
 
 ### `src/components/ui/` — generic building blocks (all default exports)
-`Skeleton` + `SkeletonText`, `LoadingLabel` (loading placeholders) · `SocialLinks` (icon row for a profile's `links`; `exclude`) · `DarkPageHeader` (page banner for every public page: breadcrumbs, title + orange accent, children; theme-aware) · `Alert` (`success\|error\|info\|warning`) · `Badge` · `Button` · `Card` (`className="p-0"` = no padding) · `ConfirmDialog` · `Container` · `EmptyState` · `Modal` (`size` `md\|lg`; bottom sheet on phones) · `Placeholder` (label, className) · `Section` · `Spinner`
+`Skeleton` + `SkeletonText`, `LoadingLabel` (loading placeholders) · `SocialLinks` (icon row for a profile's `links`; `exclude`) · `DarkPageHeader` (page banner for every public page: breadcrumbs, title + orange accent, children; theme-aware) · `Alert` (`success\|error\|info\|warning`) · `Badge` · `Button` · `Card` (`className="p-0"` = no padding) · `ConfirmDialog` · `Container` · `EmptyState` · `Modal` (`size` `md\|lg`; bottom sheet on phones) · `Spinner`
 
 ### `src/components/forms/`
 - `FormField.jsx` — named exports `Input`, `Textarea`, `Select`
@@ -291,7 +291,7 @@ Executives, Alumni, News and the home page's committee are read from MongoDB on 
 ### `src/data/`
 - `news-categories.js` — `newsCategories` (key, label, icon), `UPCOMING`, `categoryLabel(key)`
 - `legal.js` — `legalDocs` (Terms of Use, Privacy, Cookie, Refund: title, summary, lastUpdated, sections) and `LEGAL_ORDER`
-- `home.js` — all home page content (sample data) + `unsplash(id, width)` image helper; remote images allowed from `images.unsplash.com` in `next.config.mjs`
+- `home.js` — all home page content (sample data) + `unsplash(id, width)` image helper; remote images allowed from `images.unsplash.com` in `next.config.js`
 - `seed/` — starter content for `npm run seed` only (the site reads MongoDB): `news.js` (31 real posts from the University and SACC Facebook pages, documents the post + body-block shape), `executives.js` (real 2024, 2025 and 2026 committees — 55 people, each listed once with one photo in `public/executives/`), `alumni.js` (sample alumni), `members.js` (20 sample approved club members, two linked to test logins)
 
 ### `src/views/` — full page bodies (client components)

@@ -10,6 +10,7 @@ import { getHomeFeed } from '@/server/services/news.service';
 import { getContactInfo } from '@/server/services/settings.service';
 import { newsCategories, UPCOMING } from '@/data/news-categories';
 import { formatCalendarDate, formatPhone } from '@/lib/utils';
+import { thumb } from '@/lib/thumbs';
 import {
   about, whatWeDo, technologies, projects, alumniText, exploreCse,
 } from '@/data/home';
@@ -233,7 +234,7 @@ export async function ExecutivesSection() {
             <Link href={`/executives/${person.slug}?year=${person.year}`} className="group flex flex-col items-center">
               <div className="rounded-full bg-gradient-to-br from-red-600 to-orange-500 p-[3px] shadow-[0_0_25px_-5px_rgba(249,115,22,0.6)]">
                 {person.photo ? (
-                  <Image unoptimized src={person.photo} alt={person.name} width={112} height={112} className="h-28 w-28 rounded-full object-cover" />
+                  <Image unoptimized src={thumb(person.photo)} alt={person.name} width={112} height={112} className="h-28 w-28 rounded-full object-cover" />
                 ) : (
                   <span className="flex h-28 w-28 items-center justify-center rounded-full bg-surface text-2xl font-bold text-ink">
                     {initials(person.name)}
@@ -270,7 +271,7 @@ export async function CommunitySection() {
             {advisor ? (
               <Link href={`/executives/${advisor.slug}?year=${year}`} className="group flex flex-1 items-center gap-4">
                 {advisor.photo ? (
-                  <Image unoptimized src={advisor.photo} alt={advisor.name} width={80} height={96} className="h-24 w-20 shrink-0 rounded-lg object-cover ring-1 ring-orange-500/40" />
+                  <Image unoptimized src={thumb(advisor.photo)} alt={advisor.name} width={80} height={96} className="h-24 w-20 shrink-0 rounded-lg object-cover ring-1 ring-orange-500/40" />
                 ) : (
                   <span className="flex h-24 w-20 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-4xl text-orange-600 dark:text-orange-400 ring-1 ring-orange-500/40">
                     <FaUserTie aria-hidden />
@@ -409,7 +410,7 @@ export async function ConnectSection() {
               </div>
             </div>
             <div className="flex flex-col items-center justify-center border-t border-line/10 pt-6 text-center sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
-              <Image src="/logo.png" alt="Club logo" width={96} height={89} className="h-20 w-auto" />
+              <Image src="/logo-sm.webp" alt="Club logo" width={96} height={89} className="h-20 w-auto" />
               <p className="mt-3 font-bold uppercase text-ink">South Asia Computer Club</p>
               <p className="text-xs text-muted">University of South Asia</p>
               <p className="mt-2 text-sm font-medium text-orange-600 dark:text-orange-400">Empowering Innovation Through Technology</p>
