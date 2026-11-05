@@ -29,4 +29,4 @@ npm-debug.log*
 
 # cPanel package (npm run build:cpanel-npm)
 /cpanel-npm-build
-/usacc-cpanel-npm.tar.gz
+

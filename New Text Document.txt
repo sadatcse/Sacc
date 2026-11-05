@@ -1,0 +1,10 @@
+NEXT_PUBLIC_SITE_URL=https://cdc.multisports.com.bd
+MONGO_URI=mongodb+srv://sadatcse_db_user:hInYgWHUGqPqUvFV@cluster0.pvpcssh.mongodb.net/usacc?retryWrites=true&w=majority&appName=Cluster0
+JWT_SECRET=7244b1ad452ba0bd46dcecfea0776e64280d55af96d8dd5b93fa0e4ce0a71787ac0973abdcce1754b26417e251def8cf
+JWT_EXPIRES_IN=7d
+SMTP_HOST=mail.multisports.com.bd
+SMTP_PORT=587
+SMTP_USER=test@multisports.com.bd
+SMTP_PASS="iTU5,9dinLOB])@m"
+CONTACT_NOTIFICATION_EMAIL=computerclub@southasiauni.ac.bd
+ALLOW_REGISTRATION=true
